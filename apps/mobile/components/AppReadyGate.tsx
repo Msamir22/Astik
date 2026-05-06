@@ -43,7 +43,6 @@ import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useRef, useState } from "react";
 
 const SIGNUP_PROFILE_CREATED_AT_TOLERANCE_MS = 60 * 1000;
-const OAUTH_SIGNUP_MATCH_WINDOW_MS = 5 * 60 * 1000;
 
 /**
  * Whether the app has enough state to render its first real screen without
@@ -82,7 +81,6 @@ function isMatchingNewSignupProfile(
   pendingSignupLocale: PendingSignupLocale | null,
   userId: string | undefined,
   userEmail: string | undefined,
-  userCreatedAt: string | undefined,
   profileUserId: string | undefined,
   profileCreatedAt: Date | undefined,
   onboardingCompleted: boolean | undefined
@@ -92,25 +90,12 @@ function isMatchingNewSignupProfile(
   if (
     pendingSignupLocale === null ||
     !normalizedUserId ||
-    onboardingCompleted !== false ||
-    profileUserId !== normalizedUserId ||
-    !(profileCreatedAt instanceof Date)
-  ) {
-    return false;
-  }
-
-  if (pendingSignupLocale.kind === "oauth") {
-    return isCreatedDuringOAuthSignup(
-      pendingSignupLocale.authStartedAt,
-      userCreatedAt,
-      profileCreatedAt
-    );
-  }
-
-  if (
     normalizedUserEmail === null ||
+    onboardingCompleted !== false ||
     normalizedUserId !== pendingSignupLocale.userId ||
-    normalizedUserEmail !== pendingSignupLocale.email
+    profileUserId !== pendingSignupLocale.userId ||
+    normalizedUserEmail !== pendingSignupLocale.email ||
+    !(profileCreatedAt instanceof Date)
   ) {
     return false;
   }
@@ -121,34 +106,6 @@ function isMatchingNewSignupProfile(
     !Number.isNaN(profileTime) &&
     !Number.isNaN(signupTime) &&
     Math.abs(profileTime - signupTime) <= SIGNUP_PROFILE_CREATED_AT_TOLERANCE_MS
-  );
-}
-
-function isCreatedDuringOAuthSignup(
-  authStartedAt: string,
-  userCreatedAt: string | undefined,
-  profileCreatedAt: Date
-): boolean {
-  const authStartedTime = Date.parse(authStartedAt);
-  const userCreatedTime = Date.parse(userCreatedAt ?? "");
-  const profileCreatedTime = profileCreatedAt.getTime();
-
-  if (
-    Number.isNaN(authStartedTime) ||
-    Number.isNaN(userCreatedTime) ||
-    Number.isNaN(profileCreatedTime)
-  ) {
-    return false;
-  }
-
-  const windowStart = authStartedTime - SIGNUP_PROFILE_CREATED_AT_TOLERANCE_MS;
-  const windowEnd = authStartedTime + OAUTH_SIGNUP_MATCH_WINDOW_MS;
-
-  return (
-    userCreatedTime >= windowStart &&
-    userCreatedTime <= windowEnd &&
-    Math.abs(profileCreatedTime - userCreatedTime) <=
-      SIGNUP_PROFILE_CREATED_AT_TOLERANCE_MS
   );
 }
 
@@ -206,7 +163,6 @@ export function AppReadyGate(): null {
       pendingSignupLocale,
       user?.id,
       user?.email,
-      user?.created_at,
       profile?.userId,
       profile?.createdAt,
       profile?.onboardingCompleted
@@ -216,8 +172,7 @@ export function AppReadyGate(): null {
       : undefined;
     const shouldClearSignupMarker =
       pendingSignupLocale !== null &&
-      (pendingSignupLocale.kind === "oauth" ||
-        user?.id === pendingSignupLocale.userId ||
+      (user?.id === pendingSignupLocale.userId ||
         normalizeEmail(user?.email) === pendingSignupLocale.email);
     const targetLanguage = signupLanguage ?? storedLanguage;
 
@@ -272,7 +227,6 @@ export function AppReadyGate(): null {
     profile,
     user?.id,
     user?.email,
-    user?.created_at,
     profile?.userId,
     profile?.preferredLanguage,
     profile?.createdAt,
