@@ -13,9 +13,9 @@
 import { database, Profile } from "@monyvi/db";
 import { Q } from "@nozbe/watermelondb";
 import { useEffect, useState } from "react";
-import { useAuth } from "@/context/AuthContext";
 import { queryOwned } from "@/services/user-data-access";
 import { logger } from "@/utils/logger";
+import { runUserScopedEffect, useCurrentUserId } from "./useCurrentUserId";
 
 // =============================================================================
 // Types
@@ -43,48 +43,49 @@ interface UseProfileResult {
  * @returns An object with profile and isLoading.
  */
 export function useProfile(): UseProfileResult {
-  const { user, isLoading: isAuthLoading } = useAuth();
+  const { userId, isResolvingUser } = useCurrentUserId();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const userId = user?.id ?? null;
 
   useEffect(() => {
-    if (isAuthLoading) {
-      setProfile(null);
-      setIsLoading(true);
-      return;
-    }
-
-    if (userId === null) {
-      setProfile(null);
-      setIsLoading(false);
-      return;
-    }
-
-    setProfile(null);
-    setIsLoading(true);
-
-    const collection = database.get<Profile>("profiles");
-    const subscription = queryOwned(
-      collection,
+    return runUserScopedEffect({
       userId,
-      Q.where("deleted", false),
-      Q.take(1)
-    )
-      .observe()
-      .subscribe({
-        next: (profiles) => {
-          setProfile(profiles[0] ?? null);
-          setIsLoading(false);
-        },
-        error: (err: unknown) => {
-          logger.error("profile.observe.failed", err, { userId });
-          setIsLoading(false);
-        },
-      });
+      isResolvingUser,
+      onResolving: () => {
+        setProfile(null);
+        setIsLoading(true);
+      },
+      onSignedOut: () => {
+        setProfile(null);
+        setIsLoading(false);
+      },
+      onAuthenticated: (currentUserId) => {
+        setProfile(null);
+        setIsLoading(true);
 
-    return () => subscription.unsubscribe();
-  }, [isAuthLoading, userId]);
+        const collection = database.get<Profile>("profiles");
+        const subscription = queryOwned(
+          collection,
+          currentUserId,
+          Q.where("deleted", false),
+          Q.take(1)
+        )
+          .observe()
+          .subscribe({
+            next: (profiles) => {
+              setProfile(profiles[0] ?? null);
+              setIsLoading(false);
+            },
+            error: (err: unknown) => {
+              logger.error("profile.observe.failed", err);
+              setIsLoading(false);
+            },
+          });
+
+        return () => subscription.unsubscribe();
+      },
+    });
+  }, [isResolvingUser, userId]);
 
   return {
     profile,

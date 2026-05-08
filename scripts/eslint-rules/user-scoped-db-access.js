@@ -3,9 +3,11 @@
 const DIRECT_USER_OWNED_TABLES = new Set([
   "accounts",
   "assets",
+  "asset_metals",
+  "bank_details",
   "budgets",
   "daily_snapshot_assets",
-  "daily_snapshot_balances",
+  "daily_snapshot_balance",
   "daily_snapshot_net_worth",
   "debts",
   "profiles",
@@ -36,7 +38,9 @@ function isTestFile(fileName) {
   return (
     normalized.includes("/__tests__/") ||
     normalized.endsWith(".test.ts") ||
-    normalized.endsWith(".test.tsx")
+    normalized.endsWith(".test.tsx") ||
+    normalized.endsWith(".spec.ts") ||
+    normalized.endsWith(".spec.tsx")
   );
 }
 
@@ -100,7 +104,9 @@ function isScopedHelperCall(callExpression) {
       callee.name === "queryOwned" ||
       callee.name === "queryAccessibleCategories" ||
       callee.name === "findOwnedById" ||
-      callee.name === "observeOwnedById"
+      callee.name === "observeOwnedById" ||
+      callee.name === "queryChildrenOfOwnedParent" ||
+      callee.name === "queryChildrenOfOwnedParents"
     );
   }
 
@@ -114,6 +120,8 @@ function isScopedHelperCall(callExpression) {
     propertyName === "queryAccessibleCategories" ||
     propertyName === "findOwned" ||
     propertyName === "findAccessibleCategory" ||
+    propertyName === "queryChildrenOfOwnedParent" ||
+    propertyName === "queryChildrenOfOwnedParents" ||
     propertyName === "assertChildRecordParentOwned"
   );
 }
@@ -199,7 +207,11 @@ module.exports = {
         }
 
         const methodName = getPropertyName(callee);
-        if (methodName !== "find" && methodName !== "query") {
+        if (
+          methodName !== "find" &&
+          methodName !== "findAndObserve" &&
+          methodName !== "query"
+        ) {
           return;
         }
 

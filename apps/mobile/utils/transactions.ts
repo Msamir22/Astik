@@ -1,10 +1,7 @@
 import { Account, database, Transaction } from "@monyvi/db";
 import { ParsedVoiceTransaction } from "@monyvi/logic";
 import { Q } from "@nozbe/watermelondb";
-import {
-  getCurrentUserDataScope,
-  queryOwned,
-} from "../services/user-data-access";
+import { getCurrentUserDataScope } from "../services/user-data-access";
 
 /**
  * Format a transaction date for display.
@@ -109,12 +106,13 @@ export async function getOrCreateDefaultAccount(): Promise<Account> {
   const scope = await getCurrentUserDataScope();
   const accountsCollection = database.get<Account>("accounts");
 
-  const cashAccounts = await queryOwned(
-    accountsCollection,
-    scope.userId,
-    Q.where("type", "CASH"),
-    Q.where("deleted", false)
-  ).fetch();
+  const cashAccounts = await scope
+    .queryOwned(
+      accountsCollection,
+      Q.where("type", "CASH"),
+      Q.where("deleted", false)
+    )
+    .fetch();
 
   if (cashAccounts.length > 0) {
     return cashAccounts[0];

@@ -14,6 +14,8 @@ import {
   type CurrentUserDataScope,
 } from "@/services/user-data-access";
 
+const INVALID_ACCOUNT_BALANCE_ERROR_CODE = "INVALID_ACCOUNT_BALANCE";
+
 function accountsCollection(): ReturnType<typeof database.get<Account>> {
   return database.get<Account>("accounts");
 }
@@ -153,27 +155,13 @@ export async function updateTransaction(
         ? await getOwnedAccount(newAccountId, scope)
         : oldAccount;
 
-      // Only update targetAccount if it's a different record from oldAccount;
-      // if same account, the revert above already fetched it — but we need
-      // to re-find to get the reverted balance (WatermelonDB caches writes
-      // within the same write block).
-      if (!isAccountChanging) {
-        await targetAccount.update((acc) => {
-          if (newType === "EXPENSE") {
-            acc.balance -= newAmount;
-          } else {
-            acc.balance += newAmount;
-          }
-        });
-      } else {
-        await targetAccount.update((acc) => {
-          if (newType === "EXPENSE") {
-            acc.balance -= newAmount;
-          } else {
-            acc.balance += newAmount;
-          }
-        });
-      }
+      await targetAccount.update((acc) => {
+        if (newType === "EXPENSE") {
+          acc.balance -= newAmount;
+        } else {
+          acc.balance += newAmount;
+        }
+      });
     }
 
     // Update Transaction Record
@@ -381,7 +369,11 @@ export async function batchDeleteDisplayTransactions(
       if (delta && delta !== 0) {
         softDeleteBatches.push(
           account.prepareUpdate((a) => {
-            a.balance = a.balance + delta || 0;
+            const nextBalance = a.balance + delta;
+            if (!Number.isFinite(a.balance) || !Number.isFinite(nextBalance)) {
+              throw new Error(INVALID_ACCOUNT_BALANCE_ERROR_CODE);
+            }
+            a.balance = nextBalance;
           })
         );
       }

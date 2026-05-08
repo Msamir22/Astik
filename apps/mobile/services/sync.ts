@@ -512,7 +512,7 @@ async function fetchOwnedParentIds(
 ): Promise<readonly string[]> {
   const records = await database
     .get<Model>(parentTable)
-    .query(Q.where("user_id", userId), Q.where("deleted", false))
+    .query(Q.where("user_id", userId))
     .fetch();
 
   return records.map((record) => record.id);

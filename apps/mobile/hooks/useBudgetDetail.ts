@@ -25,9 +25,11 @@ import {
   getCategoryAndSubcategoryIds,
 } from "@/services/budget-service";
 import {
+  observeOwnedById,
   queryAccessibleCategories,
   queryOwned,
 } from "@/services/user-data-access";
+import { runUserScopedEffect, useCurrentUserId } from "./useCurrentUserId";
 
 // =============================================================================
 // TYPES
@@ -68,6 +70,7 @@ const RECENT_TRANSACTIONS_LIMIT = 6;
 
 export function useBudgetDetail(budgetId: string): UseBudgetDetailResult {
   const [budget, setBudget] = useState<Budget | null>(null);
+  const { userId, isResolvingUser } = useCurrentUserId();
   // F-04: Consolidated into a single state object to avoid cascading re-renders
   const [state, setState] = useState<{
     readonly metrics: SpendingMetrics | null;
@@ -91,28 +94,50 @@ export function useBudgetDetail(budgetId: string): UseBudgetDetailResult {
   useEffect(() => {
     if (!budgetId) return;
 
-    const subscription = database
-      .get<Budget>("budgets")
-      .findAndObserve(budgetId)
-      .subscribe(
-        (b) => setBudget(b),
-        () => {
-          // Budget not found or deleted
-          setBudget(null);
-          setState({
-            metrics: null,
-            daysLeft: 0,
-            daysElapsed: 1,
-            weeklySpending: [],
-            subcategoryBreakdown: [],
-            recentTransactions: [],
-            isLoading: false,
-          });
-        }
-      );
+    return runUserScopedEffect({
+      userId,
+      isResolvingUser,
+      onResolving: () => {
+        setBudget(null);
+        setState((prev) => ({ ...prev, isLoading: true }));
+      },
+      onSignedOut: () => {
+        setBudget(null);
+        setState({
+          metrics: null,
+          daysLeft: 0,
+          daysElapsed: 1,
+          weeklySpending: [],
+          subcategoryBreakdown: [],
+          recentTransactions: [],
+          isLoading: false,
+        });
+      },
+      onAuthenticated: (currentUserId) => {
+        const subscription = observeOwnedById<Budget>(
+          database.get<Budget>("budgets"),
+          budgetId,
+          currentUserId
+        ).subscribe({
+          next: (b) => setBudget(b),
+          error: () => {
+            setBudget(null);
+            setState({
+              metrics: null,
+              daysLeft: 0,
+              daysElapsed: 1,
+              weeklySpending: [],
+              subcategoryBreakdown: [],
+              recentTransactions: [],
+              isLoading: false,
+            });
+          },
+        });
 
-    return () => subscription.unsubscribe();
-  }, [budgetId]);
+        return () => subscription.unsubscribe();
+      },
+    });
+  }, [budgetId, userId, isResolvingUser]);
 
   // ── Compute all metrics when budget changes ──
   useEffect(() => {

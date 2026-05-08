@@ -219,9 +219,11 @@ export function usePeriodSummary(
       Q.where("date", Q.gte(startDate)),
       Q.where("date", Q.lte(endDate)),
     ];
+    const selectedAccountIds =
+      accountIdsString.length > 0 ? accountIdsString.split(",") : [];
 
-    if (accountIds && accountIds.length > 0) {
-      conditions.push(Q.where("account_id", Q.oneOf(accountIds)));
+    if (selectedAccountIds.length > 0) {
+      conditions.push(Q.where("account_id", Q.oneOf(selectedAccountIds)));
     }
 
     const query = queryOwned(transactionsCollection, userId, ...conditions);
@@ -232,21 +234,14 @@ export function usePeriodSummary(
         setIsLoading(false);
       },
       error: (err: unknown) => {
-        logger.error("periodSummary.observe.failed", err, { userId });
+        logger.error("periodSummary.observe.failed", err);
         setError(err instanceof Error ? err : new Error(String(err)));
         setIsLoading(false);
       },
     });
 
     return () => subscription.unsubscribe();
-  }, [
-    period,
-    accountIdsString,
-    refreshKey,
-    accountIds,
-    userId,
-    isResolvingUser,
-  ]);
+  }, [period, accountIdsString, refreshKey, userId, isResolvingUser]);
 
   // Calculate summary — convert each transaction to preferred currency first
   const data = useMemo((): PeriodSummary => {

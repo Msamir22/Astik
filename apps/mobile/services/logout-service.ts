@@ -76,14 +76,13 @@ export async function performLogout(
     // Mark logout as interrupted only once cleanup becomes irreversible
     await AsyncStorage.setItem(LOGOUT_IN_PROGRESS_KEY, "true");
 
-    // Steps 4–7: Perform the actual cleanup
+    // Steps 4-5: Perform the actual cleanup
     await executeLogoutCleanup();
 
     return { success: true };
   } catch {
-    // FR-008: If DB reset fails, still try to clear the session
+    // FR-008: Best-effort clear the interrupted logout flag.
     try {
-      await destroySession();
       await AsyncStorage.removeItem(LOGOUT_IN_PROGRESS_KEY);
     } catch {
       // Best-effort cleanup — nothing more we can do

@@ -162,6 +162,12 @@ function seedAccount(id: string, balance: number): MockModelRecord {
   return acc;
 }
 
+function seedForeignAccount(id: string, balance: number): MockModelRecord {
+  const acc = mockModel(id, { balance, userId: "foreign-user-id" });
+  mockSeed("accounts", acc);
+  return acc;
+}
+
 function seedTx(
   id: string,
   overrides: Record<string, unknown> = {}
@@ -266,6 +272,23 @@ describe("transaction-service", () => {
         })
       ).rejects.toThrow(USER_DATA_ACCESS_ERROR_CODES.USER_REQUIRED);
     });
+
+    it("rejects a foreign account without mutating its balance", async () => {
+      const foreignAccount = seedForeignAccount("acc-foreign", 1000);
+
+      await expect(
+        createTransaction({
+          amount: 100,
+          currency: "EGP",
+          categoryId: "cat-1",
+          accountId: "acc-foreign",
+          type: "EXPENSE",
+          source: "MANUAL",
+        })
+      ).rejects.toThrow(USER_DATA_ACCESS_ERROR_CODES.OWNERSHIP_FAILED);
+
+      expect(foreignAccount.balance).toBe(1000);
+    });
   });
 
   // =========================================================================
@@ -335,6 +358,23 @@ describe("transaction-service", () => {
       await updateTransaction("tx-1", { note: "just a note" });
       expect(acc.balance).toBe(900);
     });
+
+    it("rejects a foreign transaction without mutating the owned account", async () => {
+      const acc = seedAccount("acc-1", 900);
+      const tx = seedTx("tx-1", {
+        accountId: "acc-1",
+        amount: 100,
+        type: "EXPENSE",
+        userId: "foreign-user-id",
+      });
+
+      await expect(updateTransaction("tx-1", { amount: 300 })).rejects.toThrow(
+        USER_DATA_ACCESS_ERROR_CODES.OWNERSHIP_FAILED
+      );
+
+      expect(acc.balance).toBe(900);
+      expect(tx.amount).toBe(100);
+    });
   });
 
   // =========================================================================
@@ -363,6 +403,23 @@ describe("transaction-service", () => {
       await deleteTransaction("tx-1");
       expect(acc.balance).toBe(1000);
       expect(tx.deleted).toBe(true);
+    });
+
+    it("rejects a foreign transaction delete without mutating balances", async () => {
+      const acc = seedAccount("acc-1", 900);
+      const tx = seedTx("tx-1", {
+        accountId: "acc-1",
+        amount: 100,
+        type: "EXPENSE",
+        userId: "foreign-user-id",
+      });
+
+      await expect(deleteTransaction("tx-1")).rejects.toThrow(
+        USER_DATA_ACCESS_ERROR_CODES.OWNERSHIP_FAILED
+      );
+
+      expect(acc.balance).toBe(900);
+      expect(tx.deleted).toBe(false);
     });
   });
 

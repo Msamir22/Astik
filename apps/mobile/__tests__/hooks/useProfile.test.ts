@@ -6,24 +6,10 @@
  * routing.
  */
 
-import React from "react";
-
-// ---------------------------------------------------------------------------
-// Test renderer utilities
-// ---------------------------------------------------------------------------
-
-interface ReactTestRendererInstance {
-  unmount: () => void;
-  update: (element: React.ReactElement) => void;
-}
-
-interface ReactTestRendererModule {
-  act: (...args: unknown[]) => unknown;
-  create: (element: React.ReactElement) => ReactTestRendererInstance;
-}
-
-// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-assignment
-const RTR: ReactTestRendererModule = require("react-test-renderer");
+import {
+  act,
+  renderHook as renderTestingHook,
+} from "@testing-library/react-native";
 
 // ---------------------------------------------------------------------------
 // Mock: WatermelonDB observable
@@ -33,6 +19,7 @@ let activeSubscriber: {
   next: (value: unknown[]) => void;
   error: (err: unknown) => void;
 } | null = null;
+const mockUnsubscribes: jest.Mock[] = [];
 
 const mockSubscribe = jest.fn(
   (subscriber: {
@@ -40,10 +27,12 @@ const mockSubscribe = jest.fn(
     error: (err: unknown) => void;
   }) => {
     activeSubscriber = subscriber;
+    const unsubscribe = jest.fn(() => {
+      activeSubscriber = null;
+    });
+    mockUnsubscribes.push(unsubscribe);
     return {
-      unsubscribe: jest.fn(() => {
-        activeSubscriber = null;
-      }),
+      unsubscribe,
     };
   }
 );
@@ -100,39 +89,17 @@ interface HookResult {
 }
 
 function renderHook(): {
-  result: React.MutableRefObject<HookResult>;
+  result: { current: HookResult };
   unmount: () => void;
   update: () => void;
 } {
-  const resultRef: React.MutableRefObject<HookResult> =
-    React.createRef() as React.MutableRefObject<HookResult>;
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-  if (!resultRef.current) {
-    resultRef.current = { profile: null, isLoading: true };
-  }
-
-  const HookWrapper = (): React.JSX.Element | null => {
-    const hookVal = useProfile();
-    resultRef.current = hookVal;
-    return null;
-  };
-
-  let renderer: ReactTestRendererInstance | null = null;
-  RTR.act(() => {
-    renderer = RTR.create(React.createElement(HookWrapper));
-  });
-
-  if (renderer === null) {
-    throw new Error("renderer not initialised");
-  }
+  const rendered = renderTestingHook(() => useProfile());
 
   return {
-    result: resultRef,
-    unmount: () => renderer?.unmount(),
+    result: rendered.result,
+    unmount: rendered.unmount,
     update: () => {
-      RTR.act(() => {
-        renderer?.update(React.createElement(HookWrapper));
-      });
+      rendered.rerender({});
     },
   };
 }
@@ -144,6 +111,7 @@ function renderHook(): {
 beforeEach(() => {
   jest.clearAllMocks();
   activeSubscriber = null;
+  mockUnsubscribes.length = 0;
   mockUseAuth.mockReturnValue({
     user: { id: "current-user" },
     isLoading: false,
@@ -187,7 +155,7 @@ describe("useProfile", () => {
     const firstProfile = { id: "profile-1", userId: "current-user" };
     const { result, update } = renderHook();
 
-    RTR.act(() => {
+    act(() => {
       activeSubscriber?.next([firstProfile]);
     });
     expect(result.current.profile).toBe(firstProfile);
@@ -200,6 +168,7 @@ describe("useProfile", () => {
 
     update();
 
+    expect(mockUnsubscribes[0]).toHaveBeenCalledTimes(1);
     expect(result.current.profile).toBeNull();
     expect(result.current.isLoading).toBe(true);
     expect(mockQuery).toHaveBeenLastCalledWith(
@@ -212,7 +181,7 @@ describe("useProfile", () => {
   it("does not emit foreign profile rows from the scoped observation", () => {
     const { result } = renderHook();
 
-    RTR.act(() => {
+    act(() => {
       activeSubscriber?.next([]);
     });
 
@@ -220,12 +189,11 @@ describe("useProfile", () => {
     expect(result.current.isLoading).toBe(false);
   });
 
-  it("returns an unsubscribe function from the subscription (cleanup contract)", () => {
-    renderHook();
-    const subscription = mockSubscribe.mock.results[0].value as {
-      unsubscribe: () => void;
-    };
-    expect(subscription).toHaveProperty("unsubscribe");
-    expect(typeof subscription.unsubscribe).toBe("function");
+  it("unsubscribes on unmount", () => {
+    const { unmount } = renderHook();
+
+    unmount();
+
+    expect(mockUnsubscribes[0]).toHaveBeenCalledTimes(1);
   });
 });

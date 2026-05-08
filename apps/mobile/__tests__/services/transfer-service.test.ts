@@ -155,6 +155,12 @@ function seedAccount(id: string, balance: number): MockModelRecord {
   return acc;
 }
 
+function seedForeignAccount(id: string, balance: number): MockModelRecord {
+  const acc = mockModel(id, { balance, userId: "foreign-user-id" });
+  mockSeed("accounts", acc);
+  return acc;
+}
+
 function seedTransfer(
   id: string,
   overrides: Record<string, unknown> = {}
@@ -279,6 +285,23 @@ describe("transfer-service", () => {
 
       expect(mockDb.write).toHaveBeenCalledTimes(1);
     });
+
+    it("rejects a foreign account without mutating balances", async () => {
+      const foreignFrom = seedForeignAccount("acc-foreign", 1000);
+      const to = seedAccount("acc-to", 500);
+
+      await expect(
+        createTransfer({
+          amount: 100,
+          currency: "EGP",
+          fromAccountId: "acc-foreign",
+          toAccountId: "acc-to",
+        })
+      ).rejects.toThrow(USER_DATA_ACCESS_ERROR_CODES.OWNERSHIP_FAILED);
+
+      expect(foreignFrom.balance).toBe(1000);
+      expect(to.balance).toBe(500);
+    });
   });
 
   // =========================================================================
@@ -369,6 +392,25 @@ describe("transfer-service", () => {
       expect(from.balance).toBe(800);
       expect(to.balance).toBe(504);
     });
+
+    it("rejects a foreign transfer without mutating balances", async () => {
+      const from = seedAccount("acc-from", 900);
+      const to = seedAccount("acc-to", 600);
+      const transfer = seedTransfer("tf-1", {
+        fromAccountId: "acc-from",
+        toAccountId: "acc-to",
+        amount: 100,
+        userId: "foreign-user-id",
+      });
+
+      await expect(updateTransfer("tf-1", { amount: 300 })).rejects.toThrow(
+        USER_DATA_ACCESS_ERROR_CODES.OWNERSHIP_FAILED
+      );
+
+      expect(from.balance).toBe(900);
+      expect(to.balance).toBe(600);
+      expect(transfer.amount).toBe(100);
+    });
   });
 
   // =========================================================================
@@ -406,6 +448,25 @@ describe("transfer-service", () => {
       expect(from.balance).toBe(1000);
       expect(to.balance).toBe(500);
       expect(tf.deleted).toBe(true);
+    });
+
+    it("rejects a foreign transfer delete without mutating balances", async () => {
+      const from = seedAccount("acc-from", 900);
+      const to = seedAccount("acc-to", 600);
+      const transfer = seedTransfer("tf-1", {
+        fromAccountId: "acc-from",
+        toAccountId: "acc-to",
+        amount: 100,
+        userId: "foreign-user-id",
+      });
+
+      await expect(deleteTransfer("tf-1")).rejects.toThrow(
+        USER_DATA_ACCESS_ERROR_CODES.OWNERSHIP_FAILED
+      );
+
+      expect(from.balance).toBe(900);
+      expect(to.balance).toBe(600);
+      expect(transfer.deleted).toBe(false);
     });
   });
 

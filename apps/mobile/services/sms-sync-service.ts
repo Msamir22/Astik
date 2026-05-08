@@ -167,37 +167,27 @@ export async function loadExistingSmsHashes(): Promise<ReadonlySet<string>> {
   const hashes = new Set<string>();
 
   // ── Transactions ──────────────────────────────────────────────────────
-  const transactions = await scope
+  const transactionRows = (await scope
     .queryOwned(
       database.get<Transaction>("transactions"),
       Q.where("source", "SMS"),
       Q.where("sms_body_hash", Q.notEq(null)),
-      Q.where("deleted", Q.notEq(true))
+      Q.where("deleted", false)
     )
-    .fetch();
+    .unsafeFetchRaw()) as ReadonlyArray<Record<string, unknown>>;
 
-  collectHashes(
-    transactions.map((transaction) => ({
-      sms_body_hash: transaction.smsBodyHash,
-    })),
-    hashes
-  );
+  collectHashes(transactionRows, hashes);
 
   // ── Transfers (ATM withdrawals, etc.) ─────────────────────────────────
-  const transfers = await scope
+  const transferRows = (await scope
     .queryOwned(
       database.get<Transfer>("transfers"),
       Q.where("sms_body_hash", Q.notEq(null)),
-      Q.where("deleted", Q.notEq(true))
+      Q.where("deleted", false)
     )
-    .fetch();
+    .unsafeFetchRaw()) as ReadonlyArray<Record<string, unknown>>;
 
-  collectHashes(
-    transfers.map((transfer) => ({
-      sms_body_hash: transfer.smsBodyHash,
-    })),
-    hashes
-  );
+  collectHashes(transferRows, hashes);
 
   return hashes;
 }

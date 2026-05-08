@@ -23,6 +23,7 @@ import {
   queryAccessibleCategories,
   queryOwned,
 } from "@/services/user-data-access";
+import { logger } from "@/utils/logger";
 import { useCurrentUserId } from "./useCurrentUserId";
 
 interface UseAnalyticsResult<T> {
@@ -88,10 +89,12 @@ export function useMonthlyChartData(
       Q.where("date", Q.gte(startDate)),
       Q.where("type", type),
     ];
+    const selectedAccountIds =
+      accountIdsString.length > 0 ? accountIdsString.split(",") : [];
 
     // Filter by accounts if specified
-    if (accountIds && accountIds.length > 0) {
-      conditions.push(Q.where("account_id", Q.oneOf(accountIds)));
+    if (selectedAccountIds.length > 0) {
+      conditions.push(Q.where("account_id", Q.oneOf(selectedAccountIds)));
     }
 
     const query = queryOwned(transactionsCollection, userId, ...conditions);
@@ -102,22 +105,14 @@ export function useMonthlyChartData(
         setIsLoading(false);
       },
       error: (err: unknown) => {
-        console.error("Error observing chart transactions:", err);
+        logger.error("analytics.monthlyChart.observe.failed", err);
         setError(err instanceof Error ? err : new Error(String(err)));
         setIsLoading(false);
       },
     });
 
     return () => subscription.unsubscribe();
-  }, [
-    months,
-    type,
-    accountIdsString,
-    refreshKey,
-    accountIds,
-    userId,
-    isResolvingUser,
-  ]);
+  }, [months, type, accountIdsString, refreshKey, userId, isResolvingUser]);
 
   // Generate chart data
   const data = useMemo((): ChartDataPoint[] => {
@@ -180,9 +175,11 @@ export function useCategoryBreakdown(
       Q.where("date", Q.gte(startDate)),
       Q.where("date", Q.lte(endDate)),
     ];
+    const selectedAccountIds =
+      accountIdsString.length > 0 ? accountIdsString.split(",") : [];
 
-    if (accountIds && accountIds.length > 0) {
-      conditions.push(Q.where("account_id", Q.oneOf(accountIds)));
+    if (selectedAccountIds.length > 0) {
+      conditions.push(Q.where("account_id", Q.oneOf(selectedAccountIds)));
     }
 
     const transactionsQuery = queryOwned(
@@ -200,7 +197,7 @@ export function useCategoryBreakdown(
     const transactionsSub = transactionsQuery.observe().subscribe({
       next: (result) => setTransactions(result),
       error: (err: unknown) => {
-        console.error("Error observing category transactions:", err);
+        logger.error("analytics.categoryTransactions.observe.failed", err);
         setError(err instanceof Error ? err : new Error(String(err)));
       },
     });
@@ -211,7 +208,7 @@ export function useCategoryBreakdown(
         setIsLoading(false);
       },
       error: (err: unknown) => {
-        console.error("Error observing categories:", err);
+        logger.error("analytics.categories.observe.failed", err);
         setError(err instanceof Error ? err : new Error(String(err)));
         setIsLoading(false);
       },
@@ -221,15 +218,7 @@ export function useCategoryBreakdown(
       transactionsSub.unsubscribe();
       categoriesSub.unsubscribe();
     };
-  }, [
-    year,
-    month,
-    accountIdsString,
-    refreshKey,
-    accountIds,
-    userId,
-    isResolvingUser,
-  ]);
+  }, [year, month, accountIdsString, refreshKey, userId, isResolvingUser]);
 
   // Calculate category breakdown
   const data = useMemo((): CategoryBreakdown[] => {
@@ -299,8 +288,10 @@ export function useComparison(
     );
 
     const baseConditions = [Q.where("deleted", false)];
-    if (accountIds && accountIds.length > 0) {
-      baseConditions.push(Q.where("account_id", Q.oneOf(accountIds)));
+    const selectedAccountIds =
+      accountIdsString.length > 0 ? accountIdsString.split(",") : [];
+    if (selectedAccountIds.length > 0) {
+      baseConditions.push(Q.where("account_id", Q.oneOf(selectedAccountIds)));
     }
 
     // Current period query
@@ -324,7 +315,7 @@ export function useComparison(
     const currentSub = currentQuery.observe().subscribe({
       next: (result) => setCurrentTransactions(result),
       error: (err: unknown) => {
-        console.error("Error observing current period:", err);
+        logger.error("analytics.currentPeriod.observe.failed", err);
         setError(err instanceof Error ? err : new Error(String(err)));
       },
     });
@@ -335,7 +326,7 @@ export function useComparison(
         setIsLoading(false);
       },
       error: (err: unknown) => {
-        console.error("Error observing previous period:", err);
+        logger.error("analytics.previousPeriod.observe.failed", err);
         setError(err instanceof Error ? err : new Error(String(err)));
         setIsLoading(false);
       },
@@ -351,7 +342,6 @@ export function useComparison(
     targetMonth,
     accountIdsString,
     refreshKey,
-    accountIds,
     userId,
     isResolvingUser,
   ]);
@@ -423,9 +413,11 @@ export function useMonthlySummaries(
       Q.where("deleted", false),
       Q.where("date", Q.gte(startDate)),
     ];
+    const selectedAccountIds =
+      accountIdsString.length > 0 ? accountIdsString.split(",") : [];
 
-    if (accountIds && accountIds.length > 0) {
-      conditions.push(Q.where("account_id", Q.oneOf(accountIds)));
+    if (selectedAccountIds.length > 0) {
+      conditions.push(Q.where("account_id", Q.oneOf(selectedAccountIds)));
     }
 
     const query = queryOwned(transactionsCollection, userId, ...conditions);
@@ -436,21 +428,14 @@ export function useMonthlySummaries(
         setIsLoading(false);
       },
       error: (err: unknown) => {
-        console.error("Error observing monthly summaries:", err);
+        logger.error("analytics.monthlySummaries.observe.failed", err);
         setError(err instanceof Error ? err : new Error(String(err)));
         setIsLoading(false);
       },
     });
 
     return () => subscription.unsubscribe();
-  }, [
-    months,
-    accountIdsString,
-    refreshKey,
-    accountIds,
-    userId,
-    isResolvingUser,
-  ]);
+  }, [months, accountIdsString, refreshKey, userId, isResolvingUser]);
 
   // Group by month and calculate summaries
   const data = useMemo((): MonthlySummary[] => {

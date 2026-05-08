@@ -6,7 +6,7 @@
 import { database, Transaction } from "@monyvi/db";
 import { useEffect, useState } from "react";
 import { observeOwnedById } from "@/services/user-data-access";
-import { useCurrentUserId } from "./useCurrentUserId";
+import { runUserScopedEffect, useCurrentUserId } from "./useCurrentUserId";
 import { logger } from "@/utils/logger";
 
 interface UseTransactionByIdResult {
@@ -33,40 +33,40 @@ export function useTransactionById(id: string): UseTransactionByIdResult {
       return;
     }
 
-    if (isResolvingUser) {
-      setTransaction(null);
-      setIsLoading(true);
-      return;
-    }
-
-    if (!userId) {
-      setTransaction(null);
-      setIsLoading(false);
-      return;
-    }
-
-    setIsLoading(true);
-
-    const collection = database.get<Transaction>("transactions");
-    const subscription = observeOwnedById<Transaction>(
-      collection,
-      id,
-      userId
-    ).subscribe({
-      next: (record) => {
-        setTransaction(record);
-        setIsLoading(false);
+    return runUserScopedEffect({
+      userId,
+      isResolvingUser,
+      onResolving: () => {
+        setTransaction(null);
+        setIsLoading(true);
       },
-      error: (err) => {
-        logger.error("transactionById.observe.failed", err, { userId });
+      onSignedOut: () => {
         setTransaction(null);
         setIsLoading(false);
       },
-    });
+      onAuthenticated: (currentUserId) => {
+        setIsLoading(true);
 
-    return (): void => {
-      subscription.unsubscribe();
-    };
+        const collection = database.get<Transaction>("transactions");
+        const subscription = observeOwnedById<Transaction>(
+          collection,
+          id,
+          currentUserId
+        ).subscribe({
+          next: (record) => {
+            setTransaction(record);
+            setIsLoading(false);
+          },
+          error: (err) => {
+            logger.error("transactionById.observe.failed", err);
+            setTransaction(null);
+            setIsLoading(false);
+          },
+        });
+
+        return () => subscription.unsubscribe();
+      },
+    });
   }, [id, userId, isResolvingUser]);
 
   return { transaction, isLoading };

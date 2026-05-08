@@ -53,6 +53,12 @@ ruleTester.run("user-scoped-db-access", rule, {
       `,
       filename: "apps/mobile/services/sync.ts",
     },
+    {
+      code: `
+        const account = await database.get("accounts").find(id);
+      `,
+      filename: "apps/mobile/services/account-reader.spec.ts",
+    },
   ],
   invalid: [
     {
@@ -77,6 +83,34 @@ ruleTester.run("user-scoped-db-access", rule, {
       `,
       filename: "apps/mobile/context/CategoriesContext.tsx",
       errors: [{ message: /mixed-visibility table 'categories'/ }],
+    },
+    {
+      code: `
+        const account = await database.get("accounts").findAndObserve(id);
+      `,
+      filename: "apps/mobile/hooks/useAccountById.ts",
+      errors: [{ message: /Use getCurrentUserDataScope/ }],
+    },
+    {
+      code: `
+        const metals = database.get("asset_metals").query(Q.where("deleted", false));
+      `,
+      filename: "apps/mobile/hooks/useAssetBreakdown.ts",
+      errors: [{ message: /user-owned table 'asset_metals'/ }],
+    },
+    {
+      code: `
+        const details = await database.get("bank_details").find(id);
+      `,
+      filename: "apps/mobile/hooks/useAccounts.ts",
+      errors: [{ message: /user-owned table 'bank_details'/ }],
+    },
+    {
+      code: `
+        const snapshots = database.get("daily_snapshot_balance").query(Q.take(1));
+      `,
+      filename: "apps/mobile/hooks/useBalanceSnapshots.ts",
+      errors: [{ message: /user-owned table 'daily_snapshot_balance'/ }],
     },
   ],
 });

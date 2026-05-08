@@ -11,10 +11,14 @@ import {
 } from "@monyvi/logic";
 import { Q } from "@nozbe/watermelondb";
 import { useEffect, useMemo, useState } from "react";
+import { logger } from "@/utils/logger";
 import { useAccounts } from "./useAccounts";
 import { useMarketRates } from "./useMarketRates";
-import { queryOwned } from "@/services/user-data-access";
-import { useCurrentUserId } from "./useCurrentUserId";
+import {
+  queryChildrenOfOwnedParents,
+  queryOwned,
+} from "@/services/user-data-access";
+import { runUserScopedEffect, useCurrentUserId } from "./useCurrentUserId";
 
 interface UseAssetBreakdownResult {
   breakdown: AssetBreakdownPercentage[];
@@ -27,78 +31,116 @@ interface UseAssetBreakdownResult {
 export function useAssetBreakdown(): UseAssetBreakdownResult {
   const { accounts, isLoading: accountsLoading } = useAccounts();
   const { latestRates, isLoading: ratesLoading } = useMarketRates();
+  const [assets, setAssets] = useState<Asset[]>([]);
   const [assetMetals, setAssetMetals] = useState<AssetMetal[]>([]);
   const [metalsLoading, setMetalsLoading] = useState(true);
   const { userId, isResolvingUser } = useCurrentUserId();
 
-  // Fetch asset metals
+  // Observe assets first, then subscribe to asset_metals for the active parent IDs.
   useEffect(() => {
-    if (isResolvingUser) {
-      setAssetMetals([]);
-      setMetalsLoading(true);
-      return;
-    }
-
-    if (!userId) {
-      setAssetMetals([]);
-      setMetalsLoading(false);
-      return;
-    }
-
-    let isCancelled = false;
-    setMetalsLoading(true);
-
-    const metalsCollection = database.get<AssetMetal>("asset_metals");
-    const run = async (): Promise<() => void> => {
-      const assetIds = (
-        await queryOwned(
-          database.get<Asset>("assets"),
-          userId,
-          Q.where("deleted", false)
-        ).fetch()
-      ).map((asset) => asset.id);
-
-      if (isCancelled) return () => undefined;
-
-      if (assetIds.length === 0) {
+    return runUserScopedEffect({
+      userId,
+      isResolvingUser,
+      onResolving: () => {
+        setAssets([]);
+        setAssetMetals([]);
+        setMetalsLoading(true);
+      },
+      onSignedOut: () => {
+        setAssets([]);
         setAssetMetals([]);
         setMetalsLoading(false);
-        return () => undefined;
-      }
+      },
+      onAuthenticated: (currentUserId) => {
+        setAssets([]);
+        setAssetMetals([]);
+        setMetalsLoading(true);
 
-      const query = metalsCollection.query(
-        Q.where("asset_id", Q.oneOf(assetIds)),
-        Q.where("deleted", false)
-      );
+        const subscription = queryOwned(
+          database.get<Asset>("assets"),
+          currentUserId,
+          Q.where("deleted", false)
+        )
+          .observe()
+          .subscribe({
+            next: (result) => {
+              setAssets(result);
+              if (result.length === 0) {
+                setAssetMetals([]);
+                setMetalsLoading(false);
+              }
+            },
+            error: (err: unknown) => {
+              logger.error("assetBreakdown.assets.observe.failed", err);
+              setAssets([]);
+              setAssetMetals([]);
+              setMetalsLoading(false);
+            },
+          });
 
-      const subscription = query.observe().subscribe({
-        next: (result) => {
-          setAssetMetals(result);
-          setMetalsLoading(false);
-        },
-        error: (err: unknown) => {
-          console.error("Error observing asset metals:", err);
-          setMetalsLoading(false);
-        },
-      });
-
-      return () => subscription.unsubscribe();
-    };
-
-    let unsubscribe: (() => void) | undefined;
-    void run().then((nextUnsubscribe) => {
-      if (isCancelled) {
-        nextUnsubscribe();
-        return;
-      }
-      unsubscribe = nextUnsubscribe;
+        return () => subscription.unsubscribe();
+      },
     });
-
-    return () => {
-      isCancelled = true;
-      unsubscribe?.();
-    };
   }, [userId, isResolvingUser]);
+
+  const assetIds = useMemo(
+    (): string[] => assets.map((asset) => asset.id),
+    [assets]
+  );
+  const assetIdsKey = useMemo((): string => assetIds.join(","), [assetIds]);
+
+  useEffect(() => {
+    return runUserScopedEffect({
+      userId,
+      isResolvingUser,
+      onResolving: () => {
+        setAssetMetals([]);
+        setMetalsLoading(true);
+      },
+      onSignedOut: () => {
+        setAssetMetals([]);
+        setMetalsLoading(false);
+      },
+      onAuthenticated: (currentUserId) => {
+        const currentAssetIds =
+          assetIdsKey.length > 0 ? assetIdsKey.split(",") : [];
+
+        if (currentAssetIds.length === 0) {
+          setAssetMetals([]);
+          setMetalsLoading(false);
+          return;
+        }
+
+        setAssetMetals([]);
+        setMetalsLoading(true);
+
+        const currentAssets = assets.filter((asset) =>
+          currentAssetIds.includes(asset.id)
+        );
+        const query = queryChildrenOfOwnedParents(
+          database.get<AssetMetal>("asset_metals"),
+          currentAssets,
+          currentUserId,
+          "asset_id",
+          Q.where("deleted", false)
+        );
+
+        const subscription = query.observe().subscribe({
+          next: (result) => {
+            setAssetMetals(result);
+            setMetalsLoading(false);
+          },
+          error: (err: unknown) => {
+            logger.error("assetBreakdown.assetMetals.observe.failed", err);
+            setAssetMetals([]);
+            setMetalsLoading(false);
+          },
+        });
+
+        return () => subscription.unsubscribe();
+      },
+    });
+  }, [assets, assetIdsKey, userId, isResolvingUser]);
 
   const breakdown = useMemo((): AssetBreakdownPercentage[] => {
     const rawBreakdown = calculateAssetBreakdown(

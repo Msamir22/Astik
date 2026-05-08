@@ -9,7 +9,11 @@
 import { Category, database } from "@monyvi/db";
 import { Q } from "@nozbe/watermelondb";
 import { queryAccessibleCategories } from "@/services/user-data-access";
-import { useCurrentUserId } from "@/hooks/useCurrentUserId";
+import {
+  runUserScopedEffect,
+  useCurrentUserId,
+} from "@/hooks/useCurrentUserId";
+import { logger } from "@/utils/logger";
 import React, {
   createContext,
   useContext,
@@ -53,37 +57,39 @@ export function CategoriesProvider({
   const { userId, isResolvingUser } = useCurrentUserId();
 
   useEffect(() => {
-    if (isResolvingUser) {
-      setCategories([]);
-      setIsLoading(true);
-      return;
-    }
-
-    if (!userId) {
-      setCategories([]);
-      setIsLoading(false);
-      return;
-    }
-
-    const subscription = queryAccessibleCategories(
-      database.get<Category>("categories"),
+    return runUserScopedEffect({
       userId,
-      Q.where("deleted", false),
-      Q.sortBy("sort_order", Q.asc)
-    )
-      .observe()
-      .subscribe({
-        next: (result) => {
-          setCategories(result);
-          setIsLoading(false);
-        },
-        error: (err) => {
-          console.error("CategoriesProvider: observation error", err);
-          setIsLoading(false);
-        },
-      });
+      isResolvingUser,
+      onResolving: () => {
+        setCategories([]);
+        setIsLoading(true);
+      },
+      onSignedOut: () => {
+        setCategories([]);
+        setIsLoading(false);
+      },
+      onAuthenticated: (currentUserId) => {
+        const subscription = queryAccessibleCategories(
+          database.get<Category>("categories"),
+          currentUserId,
+          Q.where("deleted", false),
+          Q.sortBy("sort_order", Q.asc)
+        )
+          .observe()
+          .subscribe({
+            next: (result) => {
+              setCategories(result);
+              setIsLoading(false);
+            },
+            error: (err) => {
+              logger.error("categoriesProvider.observe.failed", err);
+              setIsLoading(false);
+            },
+          });
 
-    return () => subscription.unsubscribe();
+        return () => subscription.unsubscribe();
+      },
+    });
   }, [userId, isResolvingUser]);
 
   const categoryMap = useMemo(

@@ -215,7 +215,7 @@ export function useOnboardingGuide(): UseOnboardingGuideResult {
     const subscription = queryOwned(
       database.get<Transaction>("transactions"),
       userId,
-      Q.where("deleted", Q.notEq(true)),
+      Q.where("deleted", false),
       Q.where("source", "VOICE")
     )
       .observeCount()

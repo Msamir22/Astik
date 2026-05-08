@@ -78,6 +78,24 @@ export interface CurrentUserDataScope {
     collection: Collection<TRecord>,
     ...conditions: Clause[]
   ) => Query<TRecord>;
+  readonly queryChildrenOfOwnedParent: <
+    TChildRecord extends Model,
+    TParentRecord extends UserOwnedRecord,
+  >(
+    collection: Collection<TChildRecord>,
+    parentRecord: TParentRecord,
+    parentForeignKey: string,
+    ...conditions: Clause[]
+  ) => Query<TChildRecord>;
+  readonly queryChildrenOfOwnedParents: <
+    TChildRecord extends Model,
+    TParentRecord extends UserOwnedRecord,
+  >(
+    collection: Collection<TChildRecord>,
+    parentRecords: readonly TParentRecord[],
+    parentForeignKey: string,
+    ...conditions: Clause[]
+  ) => Query<TChildRecord>;
   readonly assertAccessibleCategory: <TRecord extends UserScopedCategoryRecord>(
     record: TRecord
   ) => TRecord;
@@ -141,6 +159,38 @@ export async function getCurrentUserDataScope(): Promise<CurrentUserDataScope> {
       ...conditions: Clause[]
     ): Query<TRecord> =>
       queryAccessibleCategories(collection, userId, ...conditions),
+    queryChildrenOfOwnedParent: <
+      TChildRecord extends Model,
+      TParentRecord extends UserOwnedRecord,
+    >(
+      collection: Collection<TChildRecord>,
+      parentRecord: TParentRecord,
+      parentForeignKey: string,
+      ...conditions: Clause[]
+    ): Query<TChildRecord> =>
+      queryChildrenOfOwnedParent(
+        collection,
+        parentRecord,
+        userId,
+        parentForeignKey,
+        ...conditions
+      ),
+    queryChildrenOfOwnedParents: <
+      TChildRecord extends Model,
+      TParentRecord extends UserOwnedRecord,
+    >(
+      collection: Collection<TChildRecord>,
+      parentRecords: readonly TParentRecord[],
+      parentForeignKey: string,
+      ...conditions: Clause[]
+    ): Query<TChildRecord> =>
+      queryChildrenOfOwnedParents(
+        collection,
+        parentRecords,
+        userId,
+        parentForeignKey,
+        ...conditions
+      ),
     assertAccessibleCategory: <TRecord extends UserScopedCategoryRecord>(
       record: TRecord
     ): TRecord => assertAccessibleCategory(record, userId),
@@ -270,6 +320,50 @@ export function queryAccessibleCategories<
 ): Query<TRecord> {
   return collection.query(
     Q.or(Q.where("user_id", currentUserId), Q.where("user_id", null)),
+    ...conditions
+  );
+}
+
+/**
+ * Build a query for child rows that inherit ownership from a verified parent.
+ */
+export function queryChildrenOfOwnedParent<
+  TChildRecord extends Model,
+  TParentRecord extends UserOwnedRecord,
+>(
+  collection: Collection<TChildRecord>,
+  parentRecord: TParentRecord,
+  currentUserId: string,
+  parentForeignKey: string,
+  ...conditions: Clause[]
+): Query<TChildRecord> {
+  assertOwnedRecord(parentRecord, currentUserId);
+  return collection.query(
+    Q.where(parentForeignKey, parentRecord.id),
+    ...conditions
+  );
+}
+
+/**
+ * Build a query for child rows of multiple verified owned parents.
+ */
+export function queryChildrenOfOwnedParents<
+  TChildRecord extends Model,
+  TParentRecord extends UserOwnedRecord,
+>(
+  collection: Collection<TChildRecord>,
+  parentRecords: readonly TParentRecord[],
+  currentUserId: string,
+  parentForeignKey: string,
+  ...conditions: Clause[]
+): Query<TChildRecord> {
+  const parentIds = parentRecords.map((parentRecord) => {
+    assertOwnedRecord(parentRecord, currentUserId);
+    return parentRecord.id;
+  });
+
+  return collection.query(
+    Q.where(parentForeignKey, Q.oneOf(parentIds)),
     ...conditions
   );
 }

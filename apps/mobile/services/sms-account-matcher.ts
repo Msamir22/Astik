@@ -35,7 +35,7 @@ import {
   isKnownFinancialSender,
 } from "@monyvi/logic";
 import { Q } from "@nozbe/watermelondb";
-import { queryOwned } from "./user-data-access";
+import { queryChildrenOfOwnedParents, queryOwned } from "./user-data-access";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -263,13 +263,13 @@ async function fetchAccountsWithDetails(
   const allBankDetails =
     accountIds.length === 0
       ? []
-      : await database
-          .get<BankDetails>("bank_details")
-          .query(
-            Q.where("account_id", Q.oneOf(accountIds)),
-            Q.where("deleted", false)
-          )
-          .fetch();
+      : await queryChildrenOfOwnedParents(
+          database.get<BankDetails>("bank_details"),
+          accounts,
+          userId,
+          "account_id",
+          Q.where("deleted", false)
+        ).fetch();
 
   // Build a lookup: accountId → first BankDetails row
   const bankDetailsByAccountId = new Map<string, BankDetails>();

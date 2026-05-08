@@ -13,6 +13,7 @@ const mockInsert = jest.fn();
 const mockUpsert = jest.fn();
 const mockUpdate = jest.fn();
 const mockUpdateIn = jest.fn();
+const mockUpdateScopedIn = jest.fn();
 const mockUpdateEq = jest.fn();
 const mockWatermelonWhere = jest.fn((column: string, value: unknown) => ({
   column,
@@ -38,6 +39,7 @@ let selectResult: SupabaseResult = { data: [], error: null };
 jest.mock("@monyvi/db", () => ({
   schema: {
     tables: {
+      asset_metals: {},
       profiles: {},
     },
   },
@@ -99,7 +101,8 @@ function mockSupabaseTable(): void {
     upsert: mockUpsert,
     update: mockUpdate,
   }));
-  mockUpdate.mockReturnValue({ eq: mockUpdateEq, in: mockUpdateIn });
+  mockUpdate.mockReturnValue({ eq: mockUpdateEq, in: mockUpdateScopedIn });
+  mockUpdateScopedIn.mockReturnValue({ in: mockUpdateIn });
   mockUpdateEq.mockReturnValue({ in: mockUpdateIn });
 }
 
@@ -241,6 +244,100 @@ describe("syncDatabase", () => {
 
     await expect(syncDatabase(mockDatabase)).rejects.toThrow(
       "Refusing to sync foreign local changes"
+    );
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
+  it("scopes child-table deletes through current-user parents even when the parent is soft-deleted", async () => {
+    mockForeignProfilesFetch.mockResolvedValue([
+      { id: "asset-1", user_id: "current-user", deleted: true },
+    ]);
+    mockUpdateIn.mockResolvedValue({ error: null });
+    mockSynchronize.mockImplementation(
+      async (args: {
+        pushChanges: (input: {
+          changes: Record<string, unknown>;
+          lastPulledAt: number | null;
+        }) => Promise<unknown>;
+      }) => {
+        await args.pushChanges({
+          changes: {
+            asset_metals: {
+              created: [],
+              updated: [],
+              deleted: ["metal-1"],
+            },
+          },
+          lastPulledAt: null,
+        });
+      }
+    );
+
+    await expect(syncDatabase(mockDatabase)).resolves.toBeUndefined();
+
+    expect(mockDatabaseGet).toHaveBeenCalledWith("assets");
+    expect(mockWatermelonWhere).toHaveBeenCalledWith("user_id", "current-user");
+    expect(mockWatermelonWhere).not.toHaveBeenCalledWith("deleted", false);
+    expect(mockUpdateScopedIn).toHaveBeenCalledWith("asset_id", ["asset-1"]);
+    expect(mockUpdateIn).toHaveBeenCalledWith("id", ["metal-1"]);
+  });
+
+  it("rejects child-table inserts when the parent is foreign", async () => {
+    mockForeignProfilesFetch.mockResolvedValue([
+      { id: "asset-current", user_id: "current-user", deleted: false },
+    ]);
+    mockSynchronize.mockImplementation(
+      async (args: {
+        pushChanges: (input: {
+          changes: Record<string, unknown>;
+          lastPulledAt: number | null;
+        }) => Promise<unknown>;
+      }) => {
+        await args.pushChanges({
+          changes: {
+            asset_metals: {
+              created: [{ id: "metal-1", asset_id: "asset-foreign" }],
+              updated: [],
+              deleted: [],
+            },
+          },
+          lastPulledAt: null,
+        });
+      }
+    );
+
+    await expect(syncDatabase(mockDatabase)).rejects.toThrow(
+      "Refusing to sync foreign local changes"
+    );
+    expect(mockInsert).not.toHaveBeenCalled();
+  });
+
+  it("rejects child-table updates when parent lookup fails", async () => {
+    mockForeignProfilesFetch.mockRejectedValue(
+      new Error("parent lookup failed")
+    );
+    mockSynchronize.mockImplementation(
+      async (args: {
+        pushChanges: (input: {
+          changes: Record<string, unknown>;
+          lastPulledAt: number | null;
+        }) => Promise<unknown>;
+      }) => {
+        await args.pushChanges({
+          changes: {
+            asset_metals: {
+              created: [],
+              updated: [{ id: "metal-1", asset_id: "asset-1" }],
+              deleted: [],
+            },
+          },
+          lastPulledAt: null,
+        });
+      }
+    );
+
+    await expect(syncDatabase(mockDatabase)).rejects.toThrow(
+      "parent lookup failed"
     );
     expect(mockUpsert).not.toHaveBeenCalled();
   });

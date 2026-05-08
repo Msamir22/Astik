@@ -32,7 +32,10 @@ import {
 
 import { useMarketRates } from "./useMarketRates";
 import { usePreferredCurrency } from "./usePreferredCurrency";
-import { queryOwned } from "@/services/user-data-access";
+import {
+  queryChildrenOfOwnedParents,
+  queryOwned,
+} from "@/services/user-data-access";
 import { useCurrentUserId } from "./useCurrentUserId";
 
 // ---------------------------------------------------------------------------
@@ -145,9 +148,11 @@ export function useMetalHoldings(): UseMetalHoldingsResult {
       return;
     }
 
-    const metalsCollection = database.get<AssetMetal>("asset_metals");
-    const query = metalsCollection.query(
-      Q.where("asset_id", Q.oneOf(assetIds)),
+    const query = queryChildrenOfOwnedParents(
+      database.get<AssetMetal>("asset_metals"),
+      assets,
+      userId,
+      "asset_id",
       Q.where("deleted", false)
     );
 

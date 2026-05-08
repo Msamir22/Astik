@@ -20,10 +20,14 @@ import {
 } from "@monyvi/logic";
 import { Q } from "@nozbe/watermelondb";
 import { useEffect, useMemo, useState } from "react";
-import { queryOwned } from "@/services/user-data-access";
+import {
+  queryChildrenOfOwnedParents,
+  queryOwned,
+} from "@/services/user-data-access";
+import { logger } from "@/utils/logger";
 import { useMarketRates } from "./useMarketRates";
 import { usePreferredCurrency } from "./usePreferredCurrency";
-import { useCurrentUserId } from "./useCurrentUserId";
+import { runUserScopedEffect, useCurrentUserId } from "./useCurrentUserId";
 interface UseNetWorthResult {
   readonly totalNetWorth: number | null;
   readonly totalNetWorthUsd: number | null;
@@ -48,8 +52,8 @@ interface UseNetWorthResult {
  */
 export function useNetWorth(): UseNetWorthResult {
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [assets, setAssets] = useState<Asset[]>([]);
   const [assetMetals, setAssetMetals] = useState<AssetMetal[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [isAccountsLoading, setIsAccountsLoading] = useState(true);
   const [isAssetMetalsLoading, setIsAssetMetalsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -63,120 +67,151 @@ export function useNetWorth(): UseNetWorthResult {
   };
 
   useEffect(() => {
-    if (isResolvingUser) {
-      setAccounts([]);
-      setIsLoading(true);
-      setIsAccountsLoading(true);
-      return;
-    }
-
-    if (!userId) {
-      setAccounts([]);
-      setIsLoading(false);
-      setIsAccountsLoading(false);
-      return;
-    }
-
-    const accountsCollection = database.get<Account>("accounts");
-    const query = queryOwned(
-      accountsCollection,
+    return runUserScopedEffect({
       userId,
-      Q.where("deleted", false)
-    );
-
-    setIsAccountsLoading(true);
-
-    // Use observeWithColumns to react to balance changes
-    const subscription = query.observeWithColumns(["balance"]).subscribe({
-      next: (result) => {
-        setAccounts(result);
+      isResolvingUser,
+      onResolving: () => {
+        setAccounts([]);
+        setIsAccountsLoading(true);
+      },
+      onSignedOut: () => {
+        setAccounts([]);
         setIsAccountsLoading(false);
       },
-      error: (err: unknown) => {
-        console.error("Error observing accounts:", err);
-        setError(err instanceof Error ? err : new Error(String(err)));
-        setIsAccountsLoading(false);
+      onAuthenticated: (currentUserId) => {
+        const accountsCollection = database.get<Account>("accounts");
+        const query = queryOwned(
+          accountsCollection,
+          currentUserId,
+          Q.where("deleted", false)
+        );
+
+        setIsAccountsLoading(true);
+
+        // Use observeWithColumns to react to balance changes
+        const subscription = query.observeWithColumns(["balance"]).subscribe({
+          next: (result) => {
+            setAccounts(result);
+            setIsAccountsLoading(false);
+          },
+          error: (err: unknown) => {
+            logger.error("netWorth.accounts.observe.failed", err);
+            setError(err instanceof Error ? err : new Error(String(err)));
+            setIsAccountsLoading(false);
+          },
+        });
+
+        return () => subscription.unsubscribe();
       },
     });
-
-    return () => subscription.unsubscribe();
   }, [refreshKey, userId, isResolvingUser]);
 
   useEffect(() => {
-    if (isResolvingUser) {
-      setAssetMetals([]);
-      setIsLoading(true);
-      setIsAssetMetalsLoading(true);
-      return;
-    }
-
-    if (!userId) {
-      setAssetMetals([]);
-      setIsLoading(false);
-      setIsAssetMetalsLoading(false);
-      return;
-    }
-
-    let isCancelled = false;
-    const assetMetalsCollection = database.get<AssetMetal>("asset_metals");
-
-    const run = async (): Promise<() => void> => {
-      const assetIds = (
-        await queryOwned(
-          database.get<Asset>("assets"),
-          userId,
-          Q.where("deleted", false)
-        ).fetch()
-      ).map((asset) => asset.id);
-
-      if (isCancelled) return () => undefined;
-
-      if (assetIds.length === 0) {
+    return runUserScopedEffect({
+      userId,
+      isResolvingUser,
+      onResolving: () => {
+        setAssets([]);
         setAssetMetals([]);
-        setIsLoading(false);
+        setIsAssetMetalsLoading(true);
+      },
+      onSignedOut: () => {
+        setAssets([]);
+        setAssetMetals([]);
         setIsAssetMetalsLoading(false);
-        return () => undefined;
-      }
+      },
+      onAuthenticated: (currentUserId) => {
+        setAssets([]);
+        setAssetMetals([]);
+        setIsAssetMetalsLoading(true);
 
-      const query = assetMetalsCollection.query(
-        Q.where("asset_id", Q.oneOf(assetIds)),
-        Q.where("deleted", false)
-      );
+        const query = queryOwned(
+          database.get<Asset>("assets"),
+          currentUserId,
+          Q.where("deleted", false)
+        );
 
-      const subscription = query.observe().subscribe({
-        next: (result) => {
-          setAssetMetals(result);
-          setIsLoading(false);
-          setIsAssetMetalsLoading(false);
-        },
-        error: (err: unknown) => {
-          console.error("Error observing asset metals:", err);
-          setError(err instanceof Error ? err : new Error(String(err)));
-          setIsLoading(false);
-          setIsAssetMetalsLoading(false);
-        },
-      });
+        const subscription = query.observe().subscribe({
+          next: (result) => {
+            setAssets(result);
+            if (result.length === 0) {
+              setAssetMetals([]);
+              setIsAssetMetalsLoading(false);
+            }
+          },
+          error: (err: unknown) => {
+            logger.error("netWorth.assets.observe.failed", err);
+            setError(err instanceof Error ? err : new Error(String(err)));
+            setAssets([]);
+            setAssetMetals([]);
+            setIsAssetMetalsLoading(false);
+          },
+        });
 
-      return () => subscription.unsubscribe();
-    };
-
-    setAssetMetals([]);
-    setIsAssetMetalsLoading(true);
-
-    let unsubscribe: (() => void) | undefined;
-    void run().then((nextUnsubscribe) => {
-      if (isCancelled) {
-        nextUnsubscribe();
-        return;
-      }
-      unsubscribe = nextUnsubscribe;
+        return () => subscription.unsubscribe();
+      },
     });
-
-    return () => {
-      isCancelled = true;
-      unsubscribe?.();
-    };
   }, [refreshKey, userId, isResolvingUser]);
+
+  const assetIds = useMemo(
+    (): string[] => assets.map((asset) => asset.id),
+    [assets]
+  );
+  const assetIdsKey = useMemo((): string => assetIds.join(","), [assetIds]);
+
+  useEffect(() => {
+    return runUserScopedEffect({
+      userId,
+      isResolvingUser,
+      onResolving: () => {
+        setAssetMetals([]);
+        setIsAssetMetalsLoading(true);
+      },
+      onSignedOut: () => {
+        setAssetMetals([]);
+        setIsAssetMetalsLoading(false);
+      },
+      onAuthenticated: (currentUserId) => {
+        const currentAssetIds =
+          assetIdsKey.length > 0 ? assetIdsKey.split(",") : [];
+
+        if (currentAssetIds.length === 0) {
+          setAssetMetals([]);
+          setIsAssetMetalsLoading(false);
+          return;
+        }
+
+        setAssetMetals([]);
+        setIsAssetMetalsLoading(true);
+
+        const currentAssets = assets.filter((asset) =>
+          currentAssetIds.includes(asset.id)
+        );
+        const query = queryChildrenOfOwnedParents(
+          database.get<AssetMetal>("asset_metals"),
+          currentAssets,
+          currentUserId,
+          "asset_id",
+          Q.where("deleted", false)
+        );
+
+        const subscription = query.observe().subscribe({
+          next: (result) => {
+            setAssetMetals(result);
+            setIsAssetMetalsLoading(false);
+          },
+          error: (err: unknown) => {
+            logger.error("netWorth.assetMetals.observe.failed", err);
+            setError(err instanceof Error ? err : new Error(String(err)));
+            setAssetMetals([]);
+            setIsAssetMetalsLoading(false);
+          },
+        });
+
+        return () => subscription.unsubscribe();
+      },
+    });
+  }, [assets, assetIdsKey, userId, isResolvingUser]);
 
   /** Convert a USD amount to the user's preferred currency. */
   const toPreferred = useMemo(
@@ -190,7 +225,6 @@ export function useNetWorth(): UseNetWorthResult {
   const netWorthData = useMemo<NetWorthData | null>(() => {
     if (
       isResolvingUser ||
-      isLoading ||
       isAccountsLoading ||
       isAssetMetalsLoading ||
       isRatesLoading ||
@@ -215,7 +249,6 @@ export function useNetWorth(): UseNetWorthResult {
     accounts,
     assetMetals,
     latestRates,
-    isLoading,
     isResolvingUser,
     isAccountsLoading,
     isAssetMetalsLoading,
@@ -235,7 +268,11 @@ export function useNetWorth(): UseNetWorthResult {
       : null,
     totalAccounts: netWorthData?.totalAccounts ?? null,
     totalAssets: netWorthData?.totalAssets ?? null,
-    isLoading: isResolvingUser || isLoading || isRatesLoading,
+    isLoading:
+      isResolvingUser ||
+      isAccountsLoading ||
+      isAssetMetalsLoading ||
+      isRatesLoading,
     error,
     refresh,
   };
@@ -261,69 +298,71 @@ export function useMonthlyPercentageChange(): {
   const { userId, isResolvingUser } = useCurrentUserId();
 
   useEffect(() => {
-    if (isResolvingUser) {
-      setMonthlyPercentageChange(null);
-      setIsLoading(true);
-      return;
-    }
-
-    if (!userId) {
-      setMonthlyPercentageChange(null);
-      setIsLoading(false);
-      return;
-    }
-
-    const collection = database.get<DailySnapshotNetWorth>(
-      "daily_snapshot_net_worth"
-    );
-
-    // Observe the collection to react to sync updates
-    const subscription = queryOwned(
-      collection,
+    return runUserScopedEffect({
       userId,
-      Q.sortBy("snapshot_date", Q.desc)
-    )
-      .observe()
-      .subscribe({
-        next: (snapshots) => {
-          if (snapshots.length === 0) {
-            setMonthlyPercentageChange(null);
-            setIsLoading(false);
-            return;
-          }
+      isResolvingUser,
+      onResolving: () => {
+        setMonthlyPercentageChange(null);
+        setIsLoading(true);
+      },
+      onSignedOut: () => {
+        setMonthlyPercentageChange(null);
+        setIsLoading(false);
+      },
+      onAuthenticated: (currentUserId) => {
+        const collection = database.get<DailySnapshotNetWorth>(
+          "daily_snapshot_net_worth"
+        );
 
-          // Most recent snapshot = current net worth
-          const currentSnapshot = snapshots[0];
-          const currentNetWorth = currentSnapshot.totalNetWorth;
+        // Observe the collection to react to sync updates
+        const subscription = queryOwned(
+          collection,
+          currentUserId,
+          Q.sortBy("snapshot_date", Q.desc)
+        )
+          .observe()
+          .subscribe({
+            next: (snapshots) => {
+              if (snapshots.length === 0) {
+                setMonthlyPercentageChange(null);
+                setIsLoading(false);
+                return;
+              }
 
-          // Find the snapshot closest to same-day-last-month
-          const comparisonDateStr = getSameDayLastMonth();
-          const comparisonDate = new Date(comparisonDateStr).getTime();
+              // Most recent snapshot = current net worth
+              const currentSnapshot = snapshots[0];
+              const currentNetWorth = currentSnapshot.totalNetWorth;
 
-          const previousSnapshot = findClosestSnapshot(
-            snapshots,
-            comparisonDate
-          );
+              // Find the snapshot closest to same-day-last-month
+              const comparisonDateStr = getSameDayLastMonth();
+              const comparisonDate = new Date(comparisonDateStr).getTime();
 
-          if (!previousSnapshot || previousSnapshot.totalNetWorth === 0) {
-            setMonthlyPercentageChange(null);
-          } else {
-            const change =
-              ((currentNetWorth - previousSnapshot.totalNetWorth) /
-                previousSnapshot.totalNetWorth) *
-              100;
-            setMonthlyPercentageChange(Math.round(change * 100) / 100);
-          }
+              const previousSnapshot = findClosestSnapshot(
+                snapshots,
+                comparisonDate
+              );
 
-          setIsLoading(false);
-        },
-        error: (err: unknown) => {
-          console.error("Error observing net worth snapshots:", err);
-          setIsLoading(false);
-        },
-      });
+              if (!previousSnapshot || previousSnapshot.totalNetWorth === 0) {
+                setMonthlyPercentageChange(null);
+              } else {
+                const change =
+                  ((currentNetWorth - previousSnapshot.totalNetWorth) /
+                    previousSnapshot.totalNetWorth) *
+                  100;
+                setMonthlyPercentageChange(Math.round(change * 100) / 100);
+              }
 
-    return () => subscription.unsubscribe();
+              setIsLoading(false);
+            },
+            error: (err: unknown) => {
+              logger.error("netWorth.snapshots.observe.failed", err);
+              setIsLoading(false);
+            },
+          });
+
+        return () => subscription.unsubscribe();
+      },
+    });
   }, [userId, isResolvingUser]);
 
   return {

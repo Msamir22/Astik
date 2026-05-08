@@ -21,7 +21,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMarketRates } from "./useMarketRates";
 import { usePreferredCurrency } from "./usePreferredCurrency";
 import { queryOwned } from "@/services/user-data-access";
-import { useCurrentUserId } from "./useCurrentUserId";
+import { runUserScopedEffect, useCurrentUserId } from "./useCurrentUserId";
 import { logger } from "@/utils/logger";
 
 // ---------------------------------------------------------------------------
@@ -143,37 +143,39 @@ export function useRecurringPayments(
   // -------------------------------------------------------------------------
 
   useEffect(() => {
-    if (isResolvingUser) {
-      setAllPayments([]);
-      setIsLoading(true);
-      return;
-    }
-
-    if (!userId) {
-      setAllPayments([]);
-      setIsLoading(false);
-      return;
-    }
-
-    const subscription = queryOwned(
-      database.get<RecurringPayment>("recurring_payments"),
+    return runUserScopedEffect({
       userId,
-      Q.where("deleted", false),
-      Q.sortBy("next_due_date", Q.asc)
-    )
-      .observe()
-      .subscribe({
-        next: (result) => {
-          setAllPayments(result);
-          setIsLoading(false);
-        },
-        error: (err) => {
-          logger.error("recurringPayments.observe.failed", err, { userId });
-          setIsLoading(false);
-        },
-      });
+      isResolvingUser,
+      onResolving: () => {
+        setAllPayments([]);
+        setIsLoading(true);
+      },
+      onSignedOut: () => {
+        setAllPayments([]);
+        setIsLoading(false);
+      },
+      onAuthenticated: (currentUserId) => {
+        const subscription = queryOwned(
+          database.get<RecurringPayment>("recurring_payments"),
+          currentUserId,
+          Q.where("deleted", false),
+          Q.sortBy("next_due_date", Q.asc)
+        )
+          .observe()
+          .subscribe({
+            next: (result) => {
+              setAllPayments(result);
+              setIsLoading(false);
+            },
+            error: (err) => {
+              logger.error("recurringPayments.observe.failed", err);
+              setIsLoading(false);
+            },
+          });
 
-    return () => subscription.unsubscribe();
+        return () => subscription.unsubscribe();
+      },
+    });
   }, [userId, isResolvingUser]);
 
   // -------------------------------------------------------------------------

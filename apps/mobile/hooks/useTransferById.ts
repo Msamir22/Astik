@@ -6,7 +6,7 @@
 import { database, Transfer } from "@monyvi/db";
 import { useEffect, useState } from "react";
 import { observeOwnedById } from "@/services/user-data-access";
-import { useCurrentUserId } from "./useCurrentUserId";
+import { runUserScopedEffect, useCurrentUserId } from "./useCurrentUserId";
 import { logger } from "@/utils/logger";
 
 interface UseTransferByIdResult {
@@ -33,40 +33,40 @@ export function useTransferById(id: string): UseTransferByIdResult {
       return;
     }
 
-    if (isResolvingUser) {
-      setTransfer(null);
-      setIsLoading(true);
-      return;
-    }
-
-    if (!userId) {
-      setTransfer(null);
-      setIsLoading(false);
-      return;
-    }
-
-    setIsLoading(true);
-
-    const collection = database.get<Transfer>("transfers");
-    const subscription = observeOwnedById<Transfer>(
-      collection,
-      id,
-      userId
-    ).subscribe({
-      next: (record) => {
-        setTransfer(record);
-        setIsLoading(false);
+    return runUserScopedEffect({
+      userId,
+      isResolvingUser,
+      onResolving: () => {
+        setTransfer(null);
+        setIsLoading(true);
       },
-      error: (err) => {
-        logger.error("transferById.observe.failed", err, { userId });
+      onSignedOut: () => {
         setTransfer(null);
         setIsLoading(false);
       },
-    });
+      onAuthenticated: (currentUserId) => {
+        setIsLoading(true);
 
-    return (): void => {
-      subscription.unsubscribe();
-    };
+        const collection = database.get<Transfer>("transfers");
+        const subscription = observeOwnedById<Transfer>(
+          collection,
+          id,
+          currentUserId
+        ).subscribe({
+          next: (record) => {
+            setTransfer(record);
+            setIsLoading(false);
+          },
+          error: (err) => {
+            logger.error("transferById.observe.failed", err);
+            setTransfer(null);
+            setIsLoading(false);
+          },
+        });
+
+        return () => subscription.unsubscribe();
+      },
+    });
   }, [id, userId, isResolvingUser]);
 
   return { transfer, isLoading };

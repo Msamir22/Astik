@@ -144,6 +144,17 @@ jest.mock("@monyvi/db", () => ({
   Transaction: {},
 }));
 
+jest.mock("@/services/user-data-access", () => ({
+  getCurrentUserDataScope: jest.fn(() =>
+    Promise.resolve({
+      queryOwned: (
+        collection: { query: (...conditions: unknown[]) => unknown },
+        ...conditions: unknown[]
+      ): unknown => collection.query(...conditions),
+    })
+  ),
+}));
+
 // ---------------------------------------------------------------------------
 // Import module under test (after mocks)
 // ---------------------------------------------------------------------------

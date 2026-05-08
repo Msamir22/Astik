@@ -393,6 +393,7 @@ describe("edit-account-service", () => {
       seedAccount("acc-1");
       const tx = mockModel("tx-1", {
         accountId: "acc-1",
+        userId: "user-1",
         deleted: false,
       });
       mockSeed("transactions", tx);
@@ -407,6 +408,7 @@ describe("edit-account-service", () => {
       const tf = mockModel("tf-1", {
         fromAccountId: "acc-1",
         toAccountId: "other",
+        userId: "user-1",
         deleted: false,
       });
       mockSeed("transfers", tf);
@@ -421,6 +423,7 @@ describe("edit-account-service", () => {
       const toTransfer = mockModel("tf-to-1", {
         fromAccountId: "other",
         toAccountId: "acc-1",
+        userId: "user-1",
         deleted: false,
       });
       mockSeed("transfers", toTransfer);
@@ -434,6 +437,7 @@ describe("edit-account-service", () => {
       seedAccount("acc-1");
       const debt = mockModel("debt-1", {
         accountId: "acc-1",
+        userId: "user-1",
         deleted: false,
       });
       mockSeed("debts", debt);
@@ -447,6 +451,7 @@ describe("edit-account-service", () => {
       seedAccount("acc-1");
       const rp = mockModel("rp-1", {
         accountId: "acc-1",
+        userId: "user-1",
         deleted: false,
       });
       mockSeed("recurring_payments", rp);
@@ -459,14 +464,27 @@ describe("edit-account-service", () => {
     it("should cascade delete ALL related entities together", async () => {
       const acc = seedAccount("acc-1");
       const bd = mockModel("bd-1", { accountId: "acc-1", deleted: false });
-      const tx = mockModel("tx-1", { accountId: "acc-1", deleted: false });
+      const tx = mockModel("tx-1", {
+        accountId: "acc-1",
+        userId: "user-1",
+        deleted: false,
+      });
       const tf = mockModel("tf-1", {
         fromAccountId: "acc-1",
         toAccountId: "other",
+        userId: "user-1",
         deleted: false,
       });
-      const debt = mockModel("debt-1", { accountId: "acc-1", deleted: false });
-      const rp = mockModel("rp-1", { accountId: "acc-1", deleted: false });
+      const debt = mockModel("debt-1", {
+        accountId: "acc-1",
+        userId: "user-1",
+        deleted: false,
+      });
+      const rp = mockModel("rp-1", {
+        accountId: "acc-1",
+        userId: "user-1",
+        deleted: false,
+      });
 
       mockSeed("bank_details", bd);
       mockSeed("transactions", tx);

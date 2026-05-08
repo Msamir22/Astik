@@ -3,6 +3,7 @@ import React, { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { I18nManager, Text, View } from "react-native";
 import Animated, {
+  cancelAnimation,
   Easing,
   useAnimatedStyle,
   useSharedValue,
@@ -41,6 +42,10 @@ export function StartupLoadingView(): React.JSX.Element {
       -1,
       false
     );
+
+    return () => {
+      cancelAnimation(progress);
+    };
   }, [progress]);
 
   const progressStyle = useAnimatedStyle(() => ({

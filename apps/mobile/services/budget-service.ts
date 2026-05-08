@@ -80,6 +80,11 @@ async function getOwnedBudget(
   return scope.findOwned(budgetsCollection(), budgetId);
 }
 
+export async function getBudgetById(budgetId: string): Promise<Budget> {
+  const scope = await getCurrentUserDataScope();
+  return getOwnedBudget(budgetId, scope);
+}
+
 // =============================================================================
 // CREATE
 // =============================================================================
@@ -108,7 +113,13 @@ export async function createBudget(input: CreateBudgetInput): Promise<Budget> {
 
   // F7 fix: Validate uniqueness inside database.write for atomicity
   return database.write(async () => {
-    await validateBudgetUniqueness(input.type, input.period, input.categoryId);
+    await validateBudgetUniqueness(
+      input.type,
+      input.period,
+      input.categoryId,
+      undefined,
+      scope
+    );
 
     const budget = await budgetsCollection().create((b) => {
       b.userId = scope.userId;
@@ -170,7 +181,8 @@ export async function updateBudget(
         budget.type,
         input.period ?? budget.period,
         input.categoryId ?? budget.categoryId,
-        budgetId
+        budgetId,
+        scope
       );
     }
 
@@ -336,6 +348,9 @@ export async function autoPauseBudget(budgetId: string): Promise<void> {
  * @returns Total spent amount
  */
 export async function getSpendingForBudget(budget: Budget): Promise<number> {
+  const scope = await getCurrentUserDataScope();
+  scope.assertOwned(budget);
+
   const bounds = getCurrentPeriodBounds(
     budget.period,
     budget.periodStart,
@@ -343,7 +358,6 @@ export async function getSpendingForBudget(budget: Budget): Promise<number> {
   );
 
   const baseConditions = [
-    Q.where("user_id", budget.userId),
     Q.where("deleted", false),
     Q.where("type", "EXPENSE"),
     Q.where("date", Q.gte(bounds.start.getTime())),
@@ -354,15 +368,19 @@ export async function getSpendingForBudget(budget: Budget): Promise<number> {
 
   if (budget.isGlobal) {
     // Global budget: all expenses in the period
-    transactions = await transactionsCollection()
-      .query(Q.and(...baseConditions))
+    transactions = await scope
+      .queryOwned(transactionsCollection(), Q.and(...baseConditions))
       .fetch();
   } else {
     // Category budget: need to include subcategories
-    const categoryIds = await getCategoryAndSubcategoryIds(budget.categoryId);
+    const categoryIds = await getCategoryAndSubcategoryIds(
+      budget.categoryId,
+      scope
+    );
 
-    transactions = await transactionsCollection()
-      .query(
+    transactions = await scope
+      .queryOwned(
+        transactionsCollection(),
         Q.and(...baseConditions, Q.where("category_id", Q.oneOf(categoryIds)))
       )
       .fetch();
@@ -383,13 +401,21 @@ export async function getSpendingForBudget(budget: Budget): Promise<number> {
  * Used for category budget spending aggregation (FR-015).
  */
 export async function getCategoryAndSubcategoryIds(
-  categoryId: string | undefined
+  categoryId: string | undefined,
+  scope?: CurrentUserDataScope
 ): Promise<string[]> {
   if (!categoryId) return [];
 
+  const currentScope = scope ?? (await getCurrentUserDataScope());
+  await currentScope.findAccessibleCategory(categoriesCollection(), categoryId);
+
   // Get direct children (L2)
-  const children = await categoriesCollection()
-    .query(Q.and(Q.where("parent_id", categoryId), Q.where("deleted", false)))
+  const children = await currentScope
+    .queryAccessibleCategories(
+      categoriesCollection(),
+      Q.where("parent_id", categoryId),
+      Q.where("deleted", false)
+    )
     .fetch();
 
   const childIds = children.map((c) => c.id);
@@ -397,12 +423,11 @@ export async function getCategoryAndSubcategoryIds(
   // Get grandchildren (L3)
   let grandchildIds: string[] = [];
   if (childIds.length > 0) {
-    const grandchildren = await categoriesCollection()
-      .query(
-        Q.and(
-          Q.where("parent_id", Q.oneOf(childIds)),
-          Q.where("deleted", false)
-        )
+    const grandchildren = await currentScope
+      .queryAccessibleCategories(
+        categoriesCollection(),
+        Q.where("parent_id", Q.oneOf(childIds)),
+        Q.where("deleted", false)
       )
       .fetch();
     grandchildIds = grandchildren.map((c) => c.id);
@@ -428,9 +453,10 @@ export async function validateBudgetUniqueness(
   type: BudgetType,
   period: BudgetPeriod,
   categoryId?: string,
-  excludeBudgetId?: string
+  excludeBudgetId?: string,
+  scope?: CurrentUserDataScope
 ): Promise<void> {
-  const scope = await getCurrentUserDataScope();
+  const currentScope = scope ?? (await getCurrentUserDataScope());
 
   const conditions = [
     Q.where("deleted", false),
@@ -446,7 +472,7 @@ export async function validateBudgetUniqueness(
     conditions.push(Q.where("id", Q.notEq(excludeBudgetId)));
   }
 
-  const existing = await scope
+  const existing = await currentScope
     .queryOwned(budgetsCollection(), Q.and(...conditions))
     .fetchCount();
 

@@ -9,13 +9,14 @@
 
 import { PageHeader } from "@/components/navigation/PageHeader";
 import { BudgetForm } from "@/components/budget/BudgetForm";
-import { Budget, database } from "@monyvi/db";
+import { Skeleton } from "@/components/ui/Skeleton";
+import type { Budget } from "@monyvi/db";
 import { useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Text, View } from "react-native";
-import { palette } from "@/constants/colors";
+import { Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { getCurrentUserDataScope } from "@/services/user-data-access";
+import { getBudgetById } from "@/services/budget-service";
+import { logger } from "@/utils/logger";
 
 // =============================================================================
 // Screen
@@ -37,11 +38,7 @@ export default function CreateBudgetScreen(): React.JSX.Element {
 
     async function loadBudget(): Promise<void> {
       try {
-        const scope = await getCurrentUserDataScope();
-        const found = await scope.findOwned(
-          database.get<Budget>("budgets"),
-          budgetId
-        );
+        const found = await getBudgetById(budgetId);
         setBudget(found);
       } catch (error) {
         // WatermelonDB .find() throws when record not found.
@@ -51,7 +48,7 @@ export default function CreateBudgetScreen(): React.JSX.Element {
           message.includes("not found") || message.includes("Could not find");
 
         if (!isNotFound) {
-          console.error("[CreateBudget] Failed to load budget:", error);
+          logger.error("createBudget.loadBudget.failed", error);
           setLoadError(t("load_budget_error"));
         }
         // If not found, budget stays undefined → BudgetForm renders in create mode
@@ -73,7 +70,33 @@ export default function CreateBudgetScreen(): React.JSX.Element {
 
       {isLoading ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color={palette.nileGreen[500]} />
+          <View className="w-full px-6">
+            <Skeleton width="100%" height={48} borderRadius={8} />
+            <Skeleton
+              width="72%"
+              height={18}
+              borderRadius={6}
+              style={{ marginTop: 24 }}
+            />
+            <Skeleton
+              width="100%"
+              height={52}
+              borderRadius={8}
+              style={{ marginTop: 12 }}
+            />
+            <Skeleton
+              width="72%"
+              height={18}
+              borderRadius={6}
+              style={{ marginTop: 24 }}
+            />
+            <Skeleton
+              width="100%"
+              height={52}
+              borderRadius={8}
+              style={{ marginTop: 12 }}
+            />
+          </View>
         </View>
       ) : loadError ? (
         <View className="flex-1 items-center justify-center px-6">

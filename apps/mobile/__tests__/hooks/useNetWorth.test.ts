@@ -11,12 +11,15 @@ interface MockObservable<T> {
 
 const mockAccountsObserveWithColumns = jest.fn();
 const mockAssetMetalsObserve = jest.fn();
-const mockAssetsFetch = jest.fn();
+const mockAssetsObserve = jest.fn();
+const mockQueryChildrenOfOwnedParents = jest.fn<unknown, unknown[]>(
+  () => mockAssetMetalsQuery
+);
 const mockAccountsQuery = {
   observeWithColumns: mockAccountsObserveWithColumns,
 };
 const mockAssetsQuery = {
-  fetch: mockAssetsFetch,
+  observe: mockAssetsObserve,
 };
 const mockAssetMetalsQuery = {
   observe: mockAssetMetalsObserve,
@@ -49,12 +52,16 @@ jest.mock("@monyvi/db", () => ({
 
 jest.mock("@nozbe/watermelondb", () => ({
   Q: {
+    desc: "desc",
     oneOf: (...args: readonly unknown[]) => ({ kind: "oneOf", args }),
+    sortBy: (...args: readonly unknown[]) => ({ kind: "sortBy", args }),
     where: (...args: readonly unknown[]) => ({ kind: "where", args }),
   },
 }));
 
 jest.mock("@/services/user-data-access", () => ({
+  queryChildrenOfOwnedParents: (...args: readonly unknown[]): unknown =>
+    mockQueryChildrenOfOwnedParents(args),
   queryOwned: (...args: readonly unknown[]): unknown => mockQueryOwned(...args),
 }));
 
@@ -88,6 +95,29 @@ jest.mock("../../hooks/useCurrentUserId", () => ({
     userId: "user-1",
     isResolvingUser: false,
   }),
+  runUserScopedEffect: ({
+    userId,
+    isResolvingUser,
+    onResolving,
+    onSignedOut,
+    onAuthenticated,
+  }: {
+    readonly userId: string | null;
+    readonly isResolvingUser: boolean;
+    readonly onResolving: () => void;
+    readonly onSignedOut: () => void;
+    readonly onAuthenticated: (userId: string) => void | (() => void);
+  }): void | (() => void) => {
+    if (isResolvingUser) {
+      onResolving();
+      return;
+    }
+    if (!userId) {
+      onSignedOut();
+      return;
+    }
+    return onAuthenticated(userId);
+  },
 }));
 
 // eslint-disable-next-line import/first
@@ -106,7 +136,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockAccountsObserveWithColumns.mockReturnValue(buildObservable());
   mockAssetMetalsObserve.mockReturnValue(buildObservable());
-  mockAssetsFetch.mockResolvedValue([{ id: "asset-1" }]);
+  mockAssetsObserve.mockReturnValue(buildObservable());
 });
 
 describe("useNetWorth", () => {

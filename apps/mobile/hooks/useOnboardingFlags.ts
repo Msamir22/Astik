@@ -3,6 +3,7 @@ import { Profile, database, type OnboardingFlags } from "@monyvi/db";
 import { Q } from "@nozbe/watermelondb";
 import { queryOwned } from "@/services/user-data-access";
 import { useCurrentUserId } from "./useCurrentUserId";
+import { logger } from "@/utils/logger";
 
 export function useOnboardingFlags(): OnboardingFlags {
   const [flags, setFlags] = useState<OnboardingFlags>({});
@@ -31,7 +32,10 @@ export function useOnboardingFlags(): OnboardingFlags {
           const profile = profiles[0];
           setFlags(profile?.onboardingFlags ?? {});
         },
-        error: () => setFlags({}),
+        error: (err: unknown) => {
+          logger.error("onboardingFlags.observe.failed", err);
+          setFlags({});
+        },
       });
     return () => subscription.unsubscribe();
   }, [userId, isResolvingUser]);

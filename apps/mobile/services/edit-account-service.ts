@@ -32,6 +32,7 @@ import { logger } from "@/utils/logger";
 import {
   USER_DATA_ACCESS_ERROR_CODES,
   findOwnedById,
+  queryChildrenOfOwnedParent,
   queryOwned,
 } from "./user-data-access";
 
@@ -371,10 +372,13 @@ export async function deleteAccountWithCascade(
         debtRecords,
         recurringPaymentRecords,
       ] = await Promise.all([
-        database
-          .get<BankDetails>("bank_details")
-          .query(Q.where("account_id", accountId), Q.where("deleted", false))
-          .fetch(),
+        queryChildrenOfOwnedParent(
+          database.get<BankDetails>("bank_details"),
+          account,
+          currentUserId,
+          "account_id",
+          Q.where("deleted", false)
+        ).fetch(),
         queryOwned(
           database.get<Transaction>("transactions"),
           currentUserId,
@@ -566,7 +570,7 @@ export async function updateAccountWithBalanceAdjustment(
       error instanceof Error
         ? error.message
         : "Unknown error creating balance adjustment transaction";
-    logger.error("createBalanceAdjustmentTransaction_failed", error);
+    logger.error("updateAccountWithBalanceAdjustment_failed", error);
     return { success: false, error: message };
   }
 }
