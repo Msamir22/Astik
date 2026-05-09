@@ -99,7 +99,7 @@ export function useAccounts(): UseAccountsResult {
     const query = queryOwned(
       accountsCollection,
       userId,
-      Q.where("deleted", Q.notEq(true))
+      Q.where("deleted", false)
     );
 
     const subscription = query
