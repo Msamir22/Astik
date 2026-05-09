@@ -14,7 +14,7 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import { useMarketRates } from "./useMarketRates";
 import { usePreferredCurrency } from "./usePreferredCurrency";
 import { queryOwned } from "@/services/user-data-access";
-import { useCurrentUserId } from "./useCurrentUserId";
+import { useCurrentUser } from "./useCurrentUser";
 import { logger } from "@/utils/logger";
 
 // =============================================================================
@@ -184,7 +184,7 @@ export function usePeriodSummary(
   const [refreshKey, setRefreshKey] = useState(0);
   const { latestRates } = useMarketRates();
   const { preferredCurrency } = usePreferredCurrency();
-  const { userId, isResolvingUser } = useCurrentUserId();
+  const { userId, isResolvingUser } = useCurrentUser();
 
   const refetch = useCallback((): void => {
     setRefreshKey((prev) => prev + 1);

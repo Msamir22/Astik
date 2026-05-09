@@ -8,7 +8,7 @@ import { getMonthBoundaries } from "@monyvi/logic";
 import { Q } from "@nozbe/watermelondb";
 import { useEffect, useState } from "react";
 import { queryOwned } from "@/services/user-data-access";
-import { runUserScopedEffect, useCurrentUserId } from "./useCurrentUserId";
+import { runUserScopedEffect, useCurrentUser } from "./useCurrentUser";
 import { logger } from "@/utils/logger";
 
 interface UseTransactionsResult {
@@ -37,7 +37,7 @@ export function useTransactions(
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
-  const { userId, isResolvingUser } = useCurrentUserId();
+  const { userId, isResolvingUser } = useCurrentUser();
 
   const refetch = (): void => {
     setRefreshKey((prev) => prev + 1);
@@ -129,7 +129,7 @@ export function useMonthlyTransactions(
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
-  const { userId, isResolvingUser } = useCurrentUserId();
+  const { userId, isResolvingUser } = useCurrentUser();
 
   const refetch = (): void => {
     setRefreshKey((prev) => prev + 1);

@@ -18,7 +18,7 @@ import {
   queryChildrenOfOwnedParents,
   queryOwned,
 } from "@/services/user-data-access";
-import { runUserScopedEffect, useCurrentUserId } from "./useCurrentUserId";
+import { runUserScopedEffect, useCurrentUser } from "./useCurrentUser";
 
 interface UseAssetBreakdownResult {
   breakdown: AssetBreakdownPercentage[];
@@ -34,7 +34,7 @@ export function useAssetBreakdown(): UseAssetBreakdownResult {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [assetMetals, setAssetMetals] = useState<AssetMetal[]>([]);
   const [metalsLoading, setMetalsLoading] = useState(true);
-  const { userId, isResolvingUser } = useCurrentUserId();
+  const { userId, isResolvingUser } = useCurrentUser();
 
   // Observe assets first, then subscribe to asset_metals for the active parent IDs.
   useEffect(() => {

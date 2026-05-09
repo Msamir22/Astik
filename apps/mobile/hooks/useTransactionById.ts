@@ -6,7 +6,7 @@
 import { database, Transaction } from "@monyvi/db";
 import { useEffect, useState } from "react";
 import { observeOwnedById } from "@/services/user-data-access";
-import { runUserScopedEffect, useCurrentUserId } from "./useCurrentUserId";
+import { runUserScopedEffect, useCurrentUser } from "./useCurrentUser";
 import { logger } from "@/utils/logger";
 
 interface UseTransactionByIdResult {
@@ -24,7 +24,7 @@ interface UseTransactionByIdResult {
 export function useTransactionById(id: string): UseTransactionByIdResult {
   const [transaction, setTransaction] = useState<Transaction | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const { userId, isResolvingUser } = useCurrentUserId();
+  const { userId, isResolvingUser } = useCurrentUser();
 
   useEffect(() => {
     if (!id) {

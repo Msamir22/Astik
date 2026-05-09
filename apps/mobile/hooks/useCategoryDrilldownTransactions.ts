@@ -4,7 +4,7 @@ import { Q } from "@nozbe/watermelondb";
 import { useEffect, useState } from "react";
 import { queryOwned } from "@/services/user-data-access";
 import { logger } from "@/utils/logger";
-import { runUserScopedEffect, useCurrentUserId } from "./useCurrentUserId";
+import { runUserScopedEffect, useCurrentUser } from "./useCurrentUser";
 
 interface UseCategoryDrilldownTransactionsResult {
   readonly transactions: readonly Transaction[];
@@ -19,7 +19,7 @@ export function useCategoryDrilldownTransactions(
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const { userId, isResolvingUser } = useCurrentUserId();
+  const { userId, isResolvingUser } = useCurrentUser();
 
   useEffect(() => {
     return runUserScopedEffect({

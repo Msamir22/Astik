@@ -28,7 +28,7 @@ import { Platform } from "react-native";
 import { useMicTooltip } from "@/context/MicTooltipContext";
 import { setSetupGuideCompleted as persistSetupGuideCompleted } from "@/services/profile-service";
 import { queryOwned } from "@/services/user-data-access";
-import { useCurrentUserId } from "./useCurrentUserId";
+import { useCurrentUser } from "./useCurrentUser";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -80,7 +80,7 @@ export function useOnboardingGuide(): UseOnboardingGuideResult {
   const [voiceLoaded, setVoiceLoaded] = useState(false);
   const [budgetLoaded, setBudgetLoaded] = useState(false);
   const [smsLoaded, setSmsLoaded] = useState(Platform.OS !== "android");
-  const { userId, isResolvingUser } = useCurrentUserId();
+  const { userId, isResolvingUser } = useCurrentUser();
 
   // Mic tooltip state lives in `MicTooltipContext` (mounted at
   // `(tabs)/_layout.tsx`) so the tooltip overlay can render at the

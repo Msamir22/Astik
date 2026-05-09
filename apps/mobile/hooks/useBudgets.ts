@@ -35,7 +35,7 @@ import {
   getDaysLeft,
   computeSpendingMetrics,
 } from "@monyvi/logic";
-import { useCurrentUserId } from "./useCurrentUserId";
+import { useCurrentUser } from "./useCurrentUser";
 
 // =============================================================================
 // TYPES
@@ -81,7 +81,7 @@ export function useBudgets(): UseBudgetsResult {
   const [isLoading, setIsLoading] = useState(true);
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("ALL");
   const [refreshCounter, setRefreshCounter] = useState(0);
-  const { userId, isResolvingUser } = useCurrentUserId();
+  const { userId, isResolvingUser } = useCurrentUser();
 
   // ── Subscribe to active, non-deleted budgets ──
   useEffect(() => {

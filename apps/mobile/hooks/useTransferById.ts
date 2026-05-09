@@ -6,7 +6,7 @@
 import { database, Transfer } from "@monyvi/db";
 import { useEffect, useState } from "react";
 import { observeOwnedById } from "@/services/user-data-access";
-import { runUserScopedEffect, useCurrentUserId } from "./useCurrentUserId";
+import { runUserScopedEffect, useCurrentUser } from "./useCurrentUser";
 import { logger } from "@/utils/logger";
 
 interface UseTransferByIdResult {
@@ -24,7 +24,7 @@ interface UseTransferByIdResult {
 export function useTransferById(id: string): UseTransferByIdResult {
   const [transfer, setTransfer] = useState<Transfer | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const { userId, isResolvingUser } = useCurrentUserId();
+  const { userId, isResolvingUser } = useCurrentUser();
 
   useEffect(() => {
     if (!id) {

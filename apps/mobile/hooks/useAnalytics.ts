@@ -24,7 +24,7 @@ import {
   queryOwned,
 } from "@/services/user-data-access";
 import { logger } from "@/utils/logger";
-import { useCurrentUserId } from "./useCurrentUserId";
+import { useCurrentUser } from "./useCurrentUser";
 
 interface UseAnalyticsResult<T> {
   data: T;
@@ -45,7 +45,7 @@ export function useMonthlyChartData(
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
-  const { userId, isResolvingUser } = useCurrentUserId();
+  const { userId, isResolvingUser } = useCurrentUser();
 
   const accountIdsString = useMemo(
     () => accountIds?.join(",") ?? "",
@@ -135,7 +135,7 @@ export function useCategoryBreakdown(
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
-  const { userId, isResolvingUser } = useCurrentUserId();
+  const { userId, isResolvingUser } = useCurrentUser();
 
   const accountIdsString = useMemo(
     () => accountIds?.join(",") ?? "",
@@ -246,7 +246,7 @@ export function useComparison(
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
-  const { userId, isResolvingUser } = useCurrentUserId();
+  const { userId, isResolvingUser } = useCurrentUser();
 
   const accountIdsString = useMemo(
     () => accountIds?.join(",") ?? "",
@@ -373,7 +373,7 @@ export function useMonthlySummaries(
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
-  const { userId, isResolvingUser } = useCurrentUserId();
+  const { userId, isResolvingUser } = useCurrentUser();
 
   const accountIdsString = useMemo(
     () => accountIds?.join(",") ?? "",

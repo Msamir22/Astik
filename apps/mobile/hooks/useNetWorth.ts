@@ -27,7 +27,7 @@ import {
 import { logger } from "@/utils/logger";
 import { useMarketRates } from "./useMarketRates";
 import { usePreferredCurrency } from "./usePreferredCurrency";
-import { runUserScopedEffect, useCurrentUserId } from "./useCurrentUserId";
+import { runUserScopedEffect, useCurrentUser } from "./useCurrentUser";
 interface UseNetWorthResult {
   readonly totalNetWorth: number | null;
   readonly totalNetWorthUsd: number | null;
@@ -61,7 +61,7 @@ export function useNetWorth(): UseNetWorthResult {
   const [refreshKey, setRefreshKey] = useState(0);
   const { latestRates, isLoading: isRatesLoading } = useMarketRates();
   const { preferredCurrency } = usePreferredCurrency();
-  const { userId, isResolvingUser } = useCurrentUserId();
+  const { userId, isResolvingUser } = useCurrentUser();
 
   const refresh = (): void => {
     setRefreshKey((prev) => prev + 1);
@@ -300,7 +300,7 @@ export function useMonthlyPercentageChange(): {
     number | null
   >(null);
   const [isLoading, setIsLoading] = useState(true);
-  const { userId, isResolvingUser } = useCurrentUserId();
+  const { userId, isResolvingUser } = useCurrentUser();
 
   useEffect(() => {
     return runUserScopedEffect({

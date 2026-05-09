@@ -24,7 +24,7 @@ import { PeriodFilter } from "./usePeriodSummary";
 import { usePreferredCurrency } from "./usePreferredCurrency";
 import { buildAccountDisplayNames } from "@/utils/account-display";
 import { queryOwned } from "@/services/user-data-access";
-import { useCurrentUserId } from "./useCurrentUserId";
+import { useCurrentUser } from "./useCurrentUser";
 
 export type TransactionTypeFilter = "All" | "Income" | "Expense" | "Transfer";
 
@@ -150,7 +150,7 @@ export function useTransactionsGrouping(
   const [isDataLoading, setIsDataLoading] = useState(true);
   const { preferredCurrency } = usePreferredCurrency();
   const [refetchTrigger, setRefetchTrigger] = useState(0);
-  const { userId, isResolvingUser } = useCurrentUserId();
+  const { userId, isResolvingUser } = useCurrentUser();
 
   // 1. Fetch Transactions and Transfers
   useEffect(() => {

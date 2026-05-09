@@ -2,12 +2,12 @@ import { useEffect, useState } from "react";
 import { Profile, database, type OnboardingFlags } from "@monyvi/db";
 import { Q } from "@nozbe/watermelondb";
 import { queryOwned } from "@/services/user-data-access";
-import { useCurrentUserId } from "./useCurrentUserId";
+import { useCurrentUser } from "./useCurrentUser";
 import { logger } from "@/utils/logger";
 
 export function useOnboardingFlags(): OnboardingFlags {
   const [flags, setFlags] = useState<OnboardingFlags>({});
-  const { userId, isResolvingUser } = useCurrentUserId();
+  const { userId, isResolvingUser } = useCurrentUser();
 
   useEffect(() => {
     if (isResolvingUser) {

@@ -15,7 +15,7 @@ import { Q } from "@nozbe/watermelondb";
 import { useEffect, useState } from "react";
 import { queryOwned } from "@/services/user-data-access";
 import { logger } from "@/utils/logger";
-import { runUserScopedEffect, useCurrentUserId } from "./useCurrentUserId";
+import { runUserScopedEffect, useCurrentUser } from "./useCurrentUser";
 
 // =============================================================================
 // Types
@@ -43,7 +43,7 @@ interface UseProfileResult {
  * @returns An object with profile and isLoading.
  */
 export function useProfile(): UseProfileResult {
-  const { userId, isResolvingUser } = useCurrentUserId();
+  const { userId, isResolvingUser } = useCurrentUser();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 

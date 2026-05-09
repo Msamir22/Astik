@@ -21,7 +21,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMarketRates } from "./useMarketRates";
 import { usePreferredCurrency } from "./usePreferredCurrency";
 import { queryOwned } from "@/services/user-data-access";
-import { runUserScopedEffect, useCurrentUserId } from "./useCurrentUserId";
+import { runUserScopedEffect, useCurrentUser } from "./useCurrentUser";
 import { logger } from "@/utils/logger";
 
 // ---------------------------------------------------------------------------
@@ -136,7 +136,7 @@ export function useRecurringPayments(
   );
   const { latestRates } = useMarketRates();
   const { preferredCurrency } = usePreferredCurrency();
-  const { userId, isResolvingUser } = useCurrentUserId();
+  const { userId, isResolvingUser } = useCurrentUser();
 
   // -------------------------------------------------------------------------
   // Observe recurring payments

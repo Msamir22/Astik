@@ -13,7 +13,7 @@ import { Q } from "@nozbe/watermelondb";
 import { useEffect, useState } from "react";
 import { queryOwned } from "@/services/user-data-access";
 import { logger } from "@/utils/logger";
-import { runUserScopedEffect, useCurrentUserId } from "./useCurrentUserId";
+import { runUserScopedEffect, useCurrentUser } from "./useCurrentUser";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -33,7 +33,7 @@ interface UseSmsImportStatsResult {
 export function useSmsImportStats(): UseSmsImportStatsResult {
   const [importedThisMonth, setImportedThisMonth] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  const { userId, isResolvingUser } = useCurrentUserId();
+  const { userId, isResolvingUser } = useCurrentUser();
 
   useEffect(() => {
     return runUserScopedEffect({

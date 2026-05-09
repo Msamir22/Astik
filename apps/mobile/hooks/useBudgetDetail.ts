@@ -30,7 +30,7 @@ import {
   queryOwned,
 } from "@/services/user-data-access";
 import { logger } from "@/utils/logger";
-import { runUserScopedEffect, useCurrentUserId } from "./useCurrentUserId";
+import { runUserScopedEffect, useCurrentUser } from "./useCurrentUser";
 
 // =============================================================================
 // TYPES
@@ -71,7 +71,7 @@ const RECENT_TRANSACTIONS_LIMIT = 6;
 
 export function useBudgetDetail(budgetId: string): UseBudgetDetailResult {
   const [budget, setBudget] = useState<Budget | null>(null);
-  const { userId, isResolvingUser } = useCurrentUserId();
+  const { userId, isResolvingUser } = useCurrentUser();
   // F-04: Consolidated into a single state object to avoid cascading re-renders
   const [state, setState] = useState<{
     readonly metrics: SpendingMetrics | null;

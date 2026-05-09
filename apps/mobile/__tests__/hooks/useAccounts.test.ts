@@ -153,8 +153,8 @@ jest.mock("../../hooks/usePreferredCurrency", () => ({
   }),
 }));
 
-jest.mock("../../hooks/useCurrentUserId", () => ({
-  useCurrentUserId: (): { userId: string; isResolvingUser: boolean } => ({
+jest.mock("../../hooks/useCurrentUser", () => ({
+  useCurrentUser: (): { userId: string; isResolvingUser: boolean } => ({
     userId: "user-1",
     isResolvingUser: false,
   }),

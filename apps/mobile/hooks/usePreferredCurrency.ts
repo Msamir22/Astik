@@ -7,7 +7,7 @@ import { database, Profile, type CurrencyType } from "@monyvi/db";
 import { SUPPORTED_CURRENCIES } from "@monyvi/logic";
 import { Q } from "@nozbe/watermelondb";
 import { useEffect, useMemo, useState } from "react";
-import { useCurrentUserId } from "./useCurrentUserId";
+import { useCurrentUser } from "./useCurrentUser";
 import { queryOwned } from "@/services/user-data-access";
 import { logger } from "@/utils/logger";
 
@@ -31,7 +31,7 @@ export function usePreferredCurrency(): UsePreferredCurrencyResult {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { showToast } = useToast();
-  const { userId, isResolvingUser } = useCurrentUserId();
+  const { userId, isResolvingUser } = useCurrentUser();
 
   useEffect(() => {
     if (isResolvingUser) {

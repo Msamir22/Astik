@@ -12,7 +12,7 @@ import {
   queryChildrenOfOwnedParents,
   queryOwned,
 } from "@/services/user-data-access";
-import { useCurrentUserId } from "./useCurrentUserId";
+import { useCurrentUser } from "./useCurrentUser";
 import { logger } from "../utils/logger";
 import { useMarketRates } from "./useMarketRates";
 import { usePreferredCurrency } from "./usePreferredCurrency";
@@ -72,7 +72,7 @@ export function useAccounts(): UseAccountsResult {
   const [refreshKey, setRefreshKey] = useState(0);
   const { latestRates } = useMarketRates();
   const { preferredCurrency } = usePreferredCurrency();
-  const { userId, isResolvingUser } = useCurrentUserId();
+  const { userId, isResolvingUser } = useCurrentUser();
 
   const refetch = (): void => {
     setRefreshKey((prev) => prev + 1);
@@ -153,7 +153,7 @@ export function useBankAccounts(): UseBankAccountsResult {
   const [isLoadingDetails, setIsLoadingDetails] = useState(true);
   const [accountsError, setAccountsError] = useState<Error | null>(null);
   const [detailsError, setDetailsError] = useState<Error | null>(null);
-  const { userId, isResolvingUser } = useCurrentUserId();
+  const { userId, isResolvingUser } = useCurrentUser();
 
   useEffect(() => {
     if (isResolvingUser) {
@@ -277,7 +277,7 @@ export function useBankAccounts(): UseBankAccountsResult {
 export function useTopAccounts(limit: number = 3): UseTopAccountsResult {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { userId, isResolvingUser } = useCurrentUserId();
+  const { userId, isResolvingUser } = useCurrentUser();
 
   useEffect(() => {
     if (isResolvingUser) {
@@ -332,7 +332,7 @@ export function useAccount(accountId: string | null): UseAccountResult {
   const [account, setAccount] = useState<Account | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const { userId, isResolvingUser } = useCurrentUserId();
+  const { userId, isResolvingUser } = useCurrentUser();
 
   useEffect(() => {
     if (!accountId) {

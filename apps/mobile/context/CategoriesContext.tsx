@@ -9,10 +9,7 @@
 import { Category, database } from "@monyvi/db";
 import { Q } from "@nozbe/watermelondb";
 import { queryAccessibleCategories } from "@/services/user-data-access";
-import {
-  runUserScopedEffect,
-  useCurrentUserId,
-} from "@/hooks/useCurrentUserId";
+import { runUserScopedEffect, useCurrentUser } from "@/hooks/useCurrentUser";
 import { logger } from "@/utils/logger";
 import React, {
   createContext,
@@ -54,7 +51,7 @@ export function CategoriesProvider({
 }: CategoriesProviderProps): React.JSX.Element {
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { userId, isResolvingUser } = useCurrentUserId();
+  const { userId, isResolvingUser } = useCurrentUser();
 
   useEffect(() => {
     return runUserScopedEffect({

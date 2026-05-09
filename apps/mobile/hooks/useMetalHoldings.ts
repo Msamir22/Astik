@@ -37,7 +37,7 @@ import {
   queryOwned,
 } from "@/services/user-data-access";
 import { logger } from "@/utils/logger";
-import { useCurrentUserId } from "./useCurrentUserId";
+import { useCurrentUser } from "./useCurrentUser";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -87,7 +87,7 @@ const ZERO_PROFIT_LOSS: ProfitLoss = { amount: 0, percent: 0 };
 export function useMetalHoldings(): UseMetalHoldingsResult {
   const { latestRates, isLoading: ratesLoading } = useMarketRates();
   const { preferredCurrency } = usePreferredCurrency();
-  const { userId, isResolvingUser } = useCurrentUserId();
+  const { userId, isResolvingUser } = useCurrentUser();
 
   const [assets, setAssets] = useState<readonly Asset[]>([]);
   const [assetMetals, setAssetMetals] = useState<readonly AssetMetal[]>([]);
