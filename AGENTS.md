@@ -128,17 +128,17 @@ Dependency direction: `apps/ → packages/logic → packages/db`. **Never revers
   background native event, and killed-app HeadlessJS. Validate fixes across the
   path being changed; do not assume a foreground-only fix covers killed-app
   behavior.
-- Every SMS-created transaction or transfer MUST persist `smsBodyHash`. This is
-  the deduplication invariant across batch scan, foreground live detection,
+- Every SMS-created transaction or transfer MUST persist `smsFingerprint`. This
+  is the deduplication invariant across batch scan, foreground live detection,
   background live detection, and notification action handling.
 - Before saving a live-detected SMS transaction/transfer, check for an existing
-  non-deleted `sms_body_hash` in both `transactions` and `transfers`.
+  non-deleted `sms_fingerprint` in both `transactions` and `transfers`.
 - Confirm/Discard notification actions MUST dismiss the delivered notification
   and be idempotent. A repeated Confirm action must not create a second
   transaction or apply a second balance/net-worth update.
 - Discard notification actions must not write financial records. They should
   only clear/dismiss the notification and leave the SMS uncommitted.
-- Prefer stable notification identifiers derived from `smsBodyHash` for
+- Prefer stable notification identifiers derived from `smsFingerprint` for
   SMS-transaction notifications so repeated scheduling/action delivery can be
   correlated safely.
 - On Android, schedule SMS notifications with the Expo notification channel via
@@ -278,7 +278,10 @@ All schema changes MUST go through local SQL migration files in
 
 - Workflow: Write SQL migration → `npm run db:migrate` → commit both migration
   and generated schema.
-- Naming: `supabase/migrations/023_descriptive_name.sql`
+- Naming: follow the existing sequential numeric prefix used by this repo:
+  `supabase/migrations/023_descriptive_name.sql`. If the Supabase CLI creates a
+  timestamp-prefixed file, rename it to the next available numeric prefix before
+  running or committing the migration.
 - When bringing existing Supabase tables into WatermelonDB: manually add
   `createTable` to `packages/db/src/migrations.ts` and bump schema version
   (auto-gen can't detect this).
