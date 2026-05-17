@@ -194,7 +194,7 @@ jobs:
               --fail \
               --silent \
               --show-error \
-              --max-time 60 \
+              --max-time 900 \
               "http://127.0.0.1:8081/index.bundle?platform=android&dev=true&minify=false" \
               > /tmp/monyvi-index.android.bundle; then
               break

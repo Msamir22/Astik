@@ -205,7 +205,11 @@ function waitForHttpComplete(url, timeoutMs) {
       });
 
       request.on("error", retry);
-      request.setTimeout(60000, () => {
+      const remainingTimeoutMs = Math.max(
+        1000,
+        timeoutMs - (Date.now() - startedAt)
+      );
+      request.setTimeout(remainingTimeoutMs, () => {
         request.destroy();
         retry();
       });

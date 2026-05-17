@@ -446,6 +446,7 @@ if (require.main === module) {
 
 module.exports = {
   E2E_TABLE_DELETE_ORDER,
+  createLocalSupabaseJwt,
   getE2eSeedConfig,
   resetE2eData,
   seedE2eData,
