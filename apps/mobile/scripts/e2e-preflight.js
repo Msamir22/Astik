@@ -62,6 +62,11 @@ const authReadyMarkers = [
   "Welcome to Monyvi",
   "Email address",
   "Sign In",
+  "Skip",
+  "Get Started",
+  "Track with your voice.",
+  "Your bank texts. We listen.",
+  "Live rates. Real gold.",
   ...Object.values(arabicAuthReadyMarkers),
 ];
 
@@ -306,8 +311,6 @@ function dismissDevMenuIfVisible(uiXml) {
   if (uiXml.includes("This is the developer menu")) {
     tapByVisibleLabel(uiXml, "Continue");
     wait(2000);
-    adb(["shell", "input", "keyevent", "4"], { allowFailure: true });
-    wait(2000);
     return true;
   }
 
@@ -449,6 +452,7 @@ function waitForProductUi(timeoutMs = 240000) {
     }
 
     if (lastFocus.includes(appId) && isAppReady(lastUiXml)) {
+      wait(3000);
       const finalFocus = getCurrentFocus();
       const finalUiXml = dumpVisibleText();
       if (
@@ -541,6 +545,8 @@ module.exports = {
   dumpVisibleText,
   ensureE2eAppReady,
   forceStopApp,
+  appendAndroidPlatform,
+  isAppReady,
   isReleaseBuild,
   hostMetroUrl,
   metroUrl,

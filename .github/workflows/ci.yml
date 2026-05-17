@@ -182,15 +182,7 @@ jobs:
           arch: x86_64
           profile: pixel_7
           disable-animations: true
-          script: |
-            adb logcat -c
-            adb install -r monyvi-android-debug/app-debug.apk
-            adb reverse tcp:8081 tcp:8081
-            set +e
-            npm run e2e:ci -w @monyvi/mobile
-            E2E_STATUS=$?
-            adb logcat -d > android-e2e-logcat.log || true
-            exit "$E2E_STATUS"
+          script: bash apps/mobile/scripts/run-android-e2e-ci.sh
 
       - name: Stop Metro
         if: always()
