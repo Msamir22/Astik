@@ -7,6 +7,7 @@ function resolveNpxCommand() {
 }
 
 function main() {
+  const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
   const env = {
     ...process.env,
     E2E_SUPABASE_MODE: "local",
@@ -14,12 +15,13 @@ function main() {
     EXPO_PUBLIC_AI_SMS_PARSER_MODE: "fixture",
     EXPO_PUBLIC_SUPABASE_URL:
       process.env.EXPO_PUBLIC_SUPABASE_URL ?? LOCAL_ANDROID_SUPABASE_URL,
-    EXPO_PUBLIC_SUPABASE_ANON_KEY:
-      process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? "",
     EXPO_PUBLIC_SENTRY_DSN: process.env.EXPO_PUBLIC_SENTRY_DSN ?? "",
     EXPO_NO_TELEMETRY: "1",
     CI: process.env.CI ?? "1",
   };
+  if (supabaseAnonKey) {
+    env.EXPO_PUBLIC_SUPABASE_ANON_KEY = supabaseAnonKey;
+  }
 
   const args =
     process.argv.length > 2
