@@ -1,0 +1,149 @@
+const mockInvoke = jest.fn();
+
+jest.mock("@/services/supabase", () => ({
+  supabase: {
+    functions: {
+      invoke: (...args: readonly unknown[]): unknown => mockInvoke(...args),
+    },
+  },
+}));
+
+import type { Category } from "@monyvi/db";
+import {
+  parseSmsWithAi,
+  type SmsCandidate,
+} from "@/services/ai-sms-parser-service";
+import { getFixtureById } from "@/services/dev/sms-fixtures";
+
+const originalEnv = process.env;
+
+function category(
+  systemName: string,
+  displayName: string,
+  id = `cat-${systemName}`
+): Category {
+  const value = { id, systemName, displayName } as unknown as Category;
+  return value;
+}
+
+const context = {
+  categories: [
+    category("other", "Other"),
+    category("shopping", "Shopping"),
+    category("salary", "Salary"),
+    category("bank_fees", "Bank Fees"),
+  ],
+  supportedCurrencies: ["EGP", "USD"],
+};
+
+function candidate(fixtureId: string): SmsCandidate {
+  const fixture = getFixtureById(fixtureId);
+  if (!fixture) throw new Error(`Missing fixture ${fixtureId}`);
+
+  return {
+    message: {
+      id: fixture.id,
+      address: fixture.sender,
+      body: fixture.body,
+      date: fixture.timestamp ?? 1775658180000,
+      read: false,
+    },
+    smsFingerprint: `fingerprint-${fixture.id}`,
+  };
+}
+
+describe("ai-sms-parser-service parser strategy", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env = { ...originalEnv };
+    delete process.env.EXPO_PUBLIC_MONYVI_TEST_MODE;
+    delete process.env.EXPO_PUBLIC_AI_SMS_PARSER_MODE;
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+  });
+
+  it("uses the Edge Function parser by default", async () => {
+    mockInvoke.mockResolvedValueOnce({
+      data: {
+        transactions: [
+          {
+            messageId: "sms-1",
+            amount: 25,
+            currency: "EGP",
+            type: "EXPENSE",
+            counterparty: "Shop",
+            date: "2026-04-08T12:00:00.000Z",
+            categorySystemName: "shopping",
+            confidenceScore: 0.9,
+            isTrusted: true,
+          },
+        ],
+      },
+      error: null,
+    });
+
+    const result = await parseSmsWithAi(
+      [
+        {
+          message: {
+            id: "sms-1",
+            address: "NBE",
+            body: "Purchase EGP 25 at Shop",
+            date: 1775658180000,
+            read: false,
+          },
+          smsFingerprint: "edge-fingerprint",
+        },
+      ],
+      context
+    );
+
+    expect(mockInvoke).toHaveBeenCalledWith("parse-sms", expect.any(Object));
+    expect(result.transactions[0]?.smsFingerprint).toBe("edge-fingerprint");
+  });
+
+  it("uses the fixture parser only when E2E fixture mode is explicit", async () => {
+    process.env.EXPO_PUBLIC_MONYVI_TEST_MODE = "e2e";
+    process.env.EXPO_PUBLIC_AI_SMS_PARSER_MODE = "fixture";
+
+    const result = await parseSmsWithAi(
+      [candidate("nbe_debit_purchase")],
+      context
+    );
+
+    expect(mockInvoke).not.toHaveBeenCalled();
+    expect(result.transactions[0]?.counterparty).toBe("CARREFOUR CAIRO");
+  });
+
+  it("wraps fixture parser failures in the normal parse error result", async () => {
+    process.env.EXPO_PUBLIC_MONYVI_TEST_MODE = "e2e";
+    process.env.EXPO_PUBLIC_AI_SMS_PARSER_MODE = "fixture";
+
+    const result = await parseSmsWithAi([candidate("nbe_debit_purchase")], {
+      categories: [],
+      supportedCurrencies: ["EGP", "USD"],
+    });
+
+    expect(mockInvoke).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      transactions: [],
+      hasError: true,
+      isRetryable: true,
+    });
+  });
+
+  it("fails closed when fixture mode is requested outside E2E mode", async () => {
+    process.env.EXPO_PUBLIC_AI_SMS_PARSER_MODE = "fixture";
+
+    mockInvoke.mockResolvedValueOnce({
+      data: { transactions: [] },
+      error: null,
+    });
+
+    await parseSmsWithAi([candidate("nbe_debit_purchase")], context);
+
+    expect(mockInvoke).toHaveBeenCalled();
+  });
+});

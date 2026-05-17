@@ -101,7 +101,7 @@ function waitForHttpOk(url, timeoutMs) {
       });
 
       request.on("error", retry);
-      request.setTimeout(3000, () => {
+      request.setTimeout(30000, () => {
         request.destroy();
         retry();
       });
@@ -240,7 +240,7 @@ function visibleTextShowsWrongShell(uiXml) {
 
 async function ensureE2eAppReady() {
   if (!isReleaseBuild) {
-    await waitForHttpOk(`${metroUrl}/status`, 30000);
+    await waitForHttpOk(`${metroUrl}/status`, 120000);
   }
   collapseSystemUi();
   startAppWithoutChangingPermissions();

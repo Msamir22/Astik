@@ -1,7 +1,5 @@
 appId: com.monyvi.app
-
 ---
-
 # Seed: Create a default "Cash" account if none exists
 # This flow checks the dashboard for accounts and creates one if missing.
 
@@ -11,6 +9,9 @@ appId: com.monyvi.app
     clearState: false
 
 - waitForAnimationToEnd
+
+# Wait until the private dashboard has finished the account-loading gate.
+- assertVisible: "Open menu"
 
 # Step 2: Check if accounts section on dashboard is empty
 # If an account card is visible, skip creation

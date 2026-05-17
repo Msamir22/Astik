@@ -6,10 +6,22 @@ End-to-end tests for the Monyvi mobile app using
 ## Quick Start
 
 ```powershell
-# 1. Start emulator + Metro (separate terminal)
+# 1. Start local Supabase from the repo root
+npx supabase start
+
+# 2. Export local E2E credentials (same terminal/session)
+$env:E2E_LOCAL_JWT_SECRET="<JWT_SECRET from: npx supabase status -o env>"
+$env:MAESTRO_E2E_EMAIL="e2e@monyvi.test"
+$env:MAESTRO_E2E_PASSWORD="<local test password>"
+
+# 3. Start emulator + Metro in E2E fixture mode (separate terminal)
+$env:EXPO_PUBLIC_MONYVI_TEST_MODE="e2e"
+$env:EXPO_PUBLIC_AI_SMS_PARSER_MODE="fixture"
+$env:EXPO_PUBLIC_SUPABASE_URL="http://10.0.2.2:54321"
 npm run start:android
 
-# 2. Run a test through the project wrapper
+# 4. Seed deterministic E2E data, then run a test through the wrapper
+npm run e2e:seed -w @monyvi/mobile
 npm run e2e:flow -w @monyvi/mobile -- e2e/maestro/transactions/create-transaction.yaml
 ```
 
@@ -28,14 +40,27 @@ GitHub Actions runs the Android E2E suite with:
 npm run e2e:ci -w @monyvi/mobile
 ```
 
-The CI job requires these repository secrets:
+The CI job uses local Supabase, a seeded test user, and the fixture SMS AI
+parser by default. The runner starts Supabase locally, seeds the user and stable
+financial data, then runs Maestro. To reproduce the same path locally:
 
-| Secret                          | Purpose                                       |
-| ------------------------------- | --------------------------------------------- |
-| `EXPO_PUBLIC_SUPABASE_URL`      | Supabase project URL used by the app bundle   |
-| `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key used by the app bundle |
-| `MAESTRO_E2E_EMAIL`             | Verified E2E test account email               |
-| `MAESTRO_E2E_PASSWORD`          | E2E test account password                     |
+```powershell
+npm run e2e:local -w @monyvi/mobile
+```
+
+Remote Supabase is still available as a temporary fallback by setting
+`E2E_SUPABASE_MODE=remote` plus explicit Supabase, service-role, and Maestro
+credentials.
+
+| Variable                         | Purpose                                            |
+| -------------------------------- | -------------------------------------------------- |
+| `E2E_SUPABASE_MODE`              | `local` by default, `remote` fallback when needed  |
+| `EXPO_PUBLIC_MONYVI_TEST_MODE`   | Set to `e2e` for deterministic app test behavior   |
+| `EXPO_PUBLIC_AI_SMS_PARSER_MODE` | Set to `fixture` to avoid live AI parsing in E2E   |
+| `MAESTRO_E2E_EMAIL`              | Seeded E2E test account email                      |
+| `MAESTRO_E2E_PASSWORD`           | Seeded E2E test account password                   |
+| `E2E_LOCAL_JWT_SECRET`           | Local Supabase JWT secret for generated local keys |
+| `SUPABASE_SERVICE_ROLE_KEY`      | Seed/reset access; local mode has a safe local key |
 
 By default the CI suite runs live SMS journeys `01` through `14`. Journey `15`
 needs a release/preview APK with an embedded JS bundle, so keep it in the

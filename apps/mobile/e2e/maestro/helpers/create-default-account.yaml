@@ -1,7 +1,5 @@
 appId: com.monyvi.app
-
 ---
-
 # Helper: Create a default Cash account named "Test Wallet" with 1000 EGP
 # Called conditionally by seed-account.yaml — do not run directly.
 
@@ -15,7 +13,7 @@ appId: com.monyvi.app
 - waitForAnimationToEnd
 
 # Step 2: Verify we're on the Add Account page
-- assertVisible: "New Account"
+- assertVisible: "Add Account"
 
 # Step 3: CASH type is selected by default — no need to tap
 

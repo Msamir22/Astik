@@ -97,11 +97,10 @@ jobs:
     env:
       CI: "true"
       SENTRYCLI_SKIP_DOWNLOAD: "1"
-      EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
-      EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
       EXPO_PUBLIC_SENTRY_DSN: ""
-      MAESTRO_E2E_EMAIL: ${{ secrets.MAESTRO_E2E_EMAIL }}
-      MAESTRO_E2E_PASSWORD: ${{ secrets.MAESTRO_E2E_PASSWORD }}
+      E2E_SUPABASE_MODE: local
+      EXPO_PUBLIC_MONYVI_TEST_MODE: e2e
+      EXPO_PUBLIC_AI_SMS_PARSER_MODE: fixture
       ANDROID_SERIAL: emulator-5554
     steps:
       - name: Checkout code
@@ -123,12 +122,34 @@ jobs:
         run: npm ci
         timeout-minutes: 30
 
-      - name: Verify E2E secrets
+      - name: Start local Supabase
+        run: npx supabase start
+        timeout-minutes: 10
+
+      - name: Prepare local E2E environment
         run: |
-          test -n "$EXPO_PUBLIC_SUPABASE_URL"
-          test -n "$EXPO_PUBLIC_SUPABASE_ANON_KEY"
-          test -n "$MAESTRO_E2E_EMAIL"
-          test -n "$MAESTRO_E2E_PASSWORD"
+          npx supabase status -o env | grep -E '^(ANON_KEY|SERVICE_ROLE_KEY)=' > supabase.env
+          . ./supabase.env
+          MAESTRO_E2E_EMAIL="e2e-${GITHUB_RUN_ID}@monyvi.test"
+          MAESTRO_E2E_PASSWORD="$(node -e "console.log(require('node:crypto').randomBytes(24).toString('base64url'))")"
+          EXPO_PUBLIC_SUPABASE_ANON_KEY="$ANON_KEY"
+          SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY"
+          export MAESTRO_E2E_EMAIL MAESTRO_E2E_PASSWORD EXPO_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY
+          node - <<'NODE' >> "$GITHUB_ENV"
+          const { getE2eSeedConfig } = require("./apps/mobile/scripts/e2e-seed");
+          const config = getE2eSeedConfig({
+            E2E_SUPABASE_MODE: "local",
+            EXPO_PUBLIC_SUPABASE_ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+            SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+            MAESTRO_E2E_EMAIL: process.env.MAESTRO_E2E_EMAIL,
+            MAESTRO_E2E_PASSWORD: process.env.MAESTRO_E2E_PASSWORD,
+          });
+          console.log(`EXPO_PUBLIC_SUPABASE_URL=${config.appSupabaseUrl}`);
+          console.log(`EXPO_PUBLIC_SUPABASE_ANON_KEY=${config.anonKey}`);
+          console.log(`SUPABASE_SERVICE_ROLE_KEY=${config.serviceRoleKey}`);
+          console.log(`MAESTRO_E2E_EMAIL=${config.email}`);
+          console.log(`MAESTRO_E2E_PASSWORD=${config.password}`);
+          NODE
 
       - name: Download Android debug APK
         uses: actions/download-artifact@v4
