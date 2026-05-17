@@ -31,6 +31,7 @@ function getLocalSupabaseEnv() {
       cwd: repoRoot,
       encoding: "utf8",
       shell: process.platform === "win32",
+      timeout: 30_000,
     }
   );
 
@@ -87,6 +88,7 @@ function main() {
     env,
     stdio: "inherit",
     shell: process.platform === "win32",
+    timeout: 5 * 60_000,
   });
 
   process.exit(result.status ?? 1);
