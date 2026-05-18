@@ -20,7 +20,10 @@ appId: com.monyvi.app
       - waitForAnimationToEnd
 
 - extendedWaitUntil:
-    visible: "Skip|Welcome to Monyvi|Email address|Transactions|Accounts|Open menu|Good Morning|Good Afternoon|Good Evening"
+    visible:
+      "Skip|Welcome to Monyvi|Email address|Auto-Track
+      Transactions|Transactions|Accounts|Open menu|Good Morning|Good
+      Afternoon|Good Evening"
     timeout: 120000
 
 - runFlow:
@@ -29,7 +32,9 @@ appId: com.monyvi.app
     commands:
       - tapOn: "Skip"
       - extendedWaitUntil:
-          visible: "Welcome to Monyvi|Email address|Transactions|Accounts|Open menu|Good Morning|Good Afternoon|Good Evening"
+          visible:
+            "Welcome to Monyvi|Email address|Transactions|Accounts|Open
+            menu|Good Morning|Good Afternoon|Good Evening"
           timeout: 120000
 
 - runFlow:
@@ -52,7 +57,9 @@ appId: com.monyvi.app
           commands:
             - tapOn: "Not Now"
       - extendedWaitUntil:
-          visible: "Choose your primary currency|Transactions|Accounts|Open menu|Good Morning|Good Afternoon|Good Evening"
+          visible:
+            "Choose your primary currency|Transactions|Accounts|Open menu|Good
+            Morning|Good Afternoon|Good Evening"
           timeout: 120000
 
 - runFlow:
@@ -61,7 +68,9 @@ appId: com.monyvi.app
     commands:
       - tapOn: "Confirm"
       - extendedWaitUntil:
-          visible: "Transactions|Accounts|Open menu|Good Morning|Good Afternoon|Good Evening"
+          visible:
+            "Transactions|Accounts|Open menu|Good Morning|Good Afternoon|Good
+            Evening"
           timeout: 120000
 
 - runFlow:
@@ -70,9 +79,12 @@ appId: com.monyvi.app
     commands:
       - tapOn: "Not Now"
       - extendedWaitUntil:
-          visible: "Transactions|Accounts|Open menu|Good Morning|Good Afternoon|Good Evening"
+          visible:
+            "Transactions|Accounts|Open menu|Good Morning|Good Afternoon|Good
+            Evening"
           timeout: 120000
 
 - extendedWaitUntil:
-    visible: "Transactions|Accounts|Open menu|Good Morning|Good Afternoon|Good Evening"
+    visible:
+      "Transactions|Accounts|Open menu|Good Morning|Good Afternoon|Good Evening"
     timeout: 120000

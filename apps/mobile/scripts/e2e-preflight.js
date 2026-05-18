@@ -131,13 +131,15 @@ function run(command, args, options = {}) {
     input: options.input,
     shell: process.platform === "win32" && command.endsWith(".bat"),
     stdio: options.capture ? "pipe" : "inherit",
+    timeout: options.timeout,
   });
 
   if (result.status !== 0 && !options.allowFailure) {
     const detail = options.capture
       ? `\n${result.stdout || ""}${result.stderr || ""}`
       : "";
-    throw new Error(`${command} ${args.join(" ")} failed${detail}`);
+    const cause = result.error ? `: ${result.error.message}` : "";
+    throw new Error(`${command} ${args.join(" ")} failed${cause}${detail}`);
   }
 
   return `${result.stdout || ""}${result.stderr || ""}`;
@@ -185,7 +187,10 @@ function waitForHttpOk(url, timeoutMs) {
 }
 
 function adb(args, options = {}) {
-  return run("adb", ["-s", deviceId, ...args], options);
+  return run("adb", ["-s", deviceId, ...args], {
+    timeout: 30000,
+    ...options,
+  });
 }
 
 function collapseSystemUi() {
@@ -444,9 +449,7 @@ function waitForProductUi(timeoutMs = 240000) {
       continue;
     }
 
-    if (
-      waitThroughAnrDialogIfVisible(lastUiXml, lastFocus, anrWaitAttempts)
-    ) {
+    if (waitThroughAnrDialogIfVisible(lastUiXml, lastFocus, anrWaitAttempts)) {
       if (lastUiXml.includes("Monyvi isn't responding")) {
         anrWaitAttempts += 1;
       }
@@ -543,8 +546,7 @@ function withoutLastAnrSection(currentFocus) {
       : currentFocus.length;
 
   return (
-    currentFocus.slice(0, lastAnrIndex) +
-    currentFocus.slice(nextSectionIndex)
+    currentFocus.slice(0, lastAnrIndex) + currentFocus.slice(nextSectionIndex)
   );
 }
 

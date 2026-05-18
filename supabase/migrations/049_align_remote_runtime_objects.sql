@@ -50,6 +50,9 @@ AS $function$BEGIN
   RAISE NOTICE 'Daily snapshots completed at %', NOW();
 END;$function$;
 
+ALTER TABLE public.categories
+ADD COLUMN IF NOT EXISTS usage_count integer NOT NULL DEFAULT 0;
+
 -- Keep category usage counters in sync with transaction category changes.
 CREATE OR REPLACE FUNCTION public.update_category_usage_count()
 RETURNS trigger

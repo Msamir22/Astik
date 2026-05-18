@@ -8,8 +8,24 @@ appId: com.monyvi.app
       notVisible:
         id: "sms-sync-button"
     commands:
-      - openLink:
-          link: monyvi://settings
+      - runFlow:
+          when:
+            notVisible:
+              id: "sms-sync-button"
+          commands:
+            - openLink:
+                link: monyvi://settings
+            - waitForAnimationToEnd
+      - runFlow:
+          when:
+            notVisible:
+              id: "sms-sync-button"
+          commands:
+            - extendedWaitUntil:
+                visible: "Settings"
+                timeout: 120000
+            - tapOn: "Settings"
+            - waitForAnimationToEnd
       - extendedWaitUntil:
           visible:
             id: "sms-sync-button"

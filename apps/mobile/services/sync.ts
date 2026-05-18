@@ -77,6 +77,24 @@ type WritableSupabaseTablesNames = Exclude<
   ReadOnlyTableName
 >;
 
+function isSnapshotTable(
+  table: SupabaseTablesNames
+): table is SnapshotTableName {
+  return (SNAPSHOT_TABLES as readonly SupabaseTablesNames[]).includes(table);
+}
+
+function isReadOnlyTable(
+  table: SupabaseTablesNames
+): table is ReadOnlyTableName {
+  return table === "market_rates" || isSnapshotTable(table);
+}
+
+function isWritableTable(
+  table: SupabaseTablesNames
+): table is WritableSupabaseTablesNames {
+  return !isReadOnlyTable(table);
+}
+
 // Tables that should be synced to Supabase
 const SYNCABLE_TABLES = Object.keys(schema.tables).filter(
   (table) => !EXCLUDED_TABLES.includes(table as ExcludedTableName)
@@ -374,19 +392,12 @@ async function pullChanges(
 
   for (const table of SYNCABLE_TABLES) {
     const childConfig = CHILD_TABLES_MAP[table];
-    const isSnapshotTable = SNAPSHOT_TABLES.includes(
-      table as SnapshotTableName
-    );
 
     // Route to appropriate specialized pull function.
     if (table === "market_rates") {
       changes[table] = await pullMarketRates();
-    } else if (isSnapshotTable) {
-      changes[table] = await pullSnapshotTable(
-        table as SnapshotTableName,
-        userId,
-        lastSyncDate
-      );
+    } else if (isSnapshotTable(table)) {
+      changes[table] = await pullSnapshotTable(table, userId, lastSyncDate);
     } else if (table === "categories") {
       changes[table] = await pullCategories(userId, lastSyncDate);
     } else if (childConfig) {
@@ -432,10 +443,7 @@ async function pushChanges(
     }
 
     // Skip read-only tables (pull only, never push)
-    if (
-      table === "market_rates" ||
-      SNAPSHOT_TABLES.includes(table as SnapshotTableName)
-    ) {
+    if (!isWritableTable(table)) {
       continue;
     }
 
