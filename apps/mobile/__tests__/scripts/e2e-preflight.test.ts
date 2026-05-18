@@ -1,5 +1,6 @@
 interface E2ePreflightModule {
   appendAndroidPlatform(url: string): string;
+  currentFocusShowsDevMenu(currentFocus: string): boolean;
   isAppReady(uiXml: string): boolean;
 }
 
@@ -29,5 +30,23 @@ describe("e2e-preflight", () => {
         '<node text="This is the developer menu" /><node text="Skip" />'
       )
     ).toBe(false);
+  });
+
+  it("does not treat stale DevMenuActivity records as the focused dev menu", () => {
+    expect(
+      preflight.currentFocusShowsDevMenu(`
+        Display #0 currentFocus=Window{ad25cd0 u0 com.google.android.apps.nexuslauncher/com.google.android.apps.nexuslauncher.NexusLauncherActivity}
+        mFocusedApp=ActivityRecord{e4594ea u0 com.monyvi.app/expo.modules.devmenu.DevMenuActivity t10}
+        Window #9 Window{b4ae2b7 u0 com.monyvi.app/expo.modules.devmenu.DevMenuActivity}
+      `)
+    ).toBe(false);
+  });
+
+  it("detects the developer menu when it owns the focused window", () => {
+    expect(
+      preflight.currentFocusShowsDevMenu(
+        "mCurrentFocus=Window{b4ae2b7 u0 com.monyvi.app/expo.modules.devmenu.DevMenuActivity}"
+      )
+    ).toBe(true);
   });
 });

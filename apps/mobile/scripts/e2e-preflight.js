@@ -424,10 +424,6 @@ function waitForProductUi(timeoutMs = 240000) {
       continue;
     }
 
-    if (dismissDevMenuIfFocused(lastFocus)) {
-      continue;
-    }
-
     if (
       restoreAppFromDevLauncherIfFocused(lastFocus, devLauncherRestoreAttempts)
     ) {
@@ -444,6 +440,10 @@ function waitForProductUi(timeoutMs = 240000) {
 
     if (restoreAppFromLauncherIfVisible(lastUiXml, launcherRestoreAttempts)) {
       launcherRestoreAttempts += 1;
+      continue;
+    }
+
+    if (dismissDevMenuIfFocused(lastFocus)) {
       continue;
     }
 
@@ -488,7 +488,9 @@ function currentFocusShowsWrongShell(currentFocus) {
 }
 
 function currentFocusShowsDevMenu(currentFocus) {
-  return currentFocus.includes("expo.modules.devmenu.DevMenuActivity");
+  return /(?:mCurrentFocus|currentFocus)=Window\{[^}]*\s(?:u\d+\s)?com\.monyvi\.app\/expo\.modules\.devmenu\.DevMenuActivity/.test(
+    currentFocus
+  );
 }
 
 function visibleTextShowsWrongShell(uiXml) {
@@ -546,6 +548,7 @@ module.exports = {
   ensureE2eAppReady,
   forceStopApp,
   appendAndroidPlatform,
+  currentFocusShowsDevMenu,
   isAppReady,
   isReleaseBuild,
   hostMetroUrl,
