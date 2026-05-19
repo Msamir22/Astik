@@ -125,37 +125,54 @@ function clearSmsSyncProbeRows() {
 }
 
 function verifyBatchSmsSaved() {
+  const [
+    duplicateTransactionCountQuery,
+    distinctFingerprintCountQuery,
+    atmWithdrawalTransferCountQuery,
+  ] = buildBatchSmsSavedVerificationQueries();
+
   expectWatermelonScalar(
-    [
-      "select count(*) from transactions",
-      "where counterparty = 'PR622 BATCH DUPLICATE SHOP'",
-      "and deleted = 0",
-      "and sms_fingerprint is not null;",
-    ].join(" "),
+    duplicateTransactionCountQuery,
     "2",
     "Duplicate batch SMS transaction count"
   );
   expectWatermelonScalar(
-    [
-      "select count(distinct sms_fingerprint) from transactions",
-      "where counterparty = 'PR622 BATCH DUPLICATE SHOP'",
-      "and deleted = 0",
-      "and sms_fingerprint is not null;",
-    ].join(" "),
+    distinctFingerprintCountQuery,
     "2",
     "Duplicate batch SMS distinct fingerprint count"
   );
   expectWatermelonScalar(
+    atmWithdrawalTransferCountQuery,
+    "1",
+    "ATM withdrawal transfer count"
+  );
+}
+
+function buildBatchSmsSavedVerificationQueries() {
+  return [
+    [
+      "select count(*) from transactions",
+      "where counterparty = 'PR622 BATCH DUPLICATE SHOP'",
+      "and deleted = 0",
+      "and sms_fingerprint is not null",
+      `and ${activeUserFilter};`,
+    ].join(" "),
+    [
+      "select count(distinct sms_fingerprint) from transactions",
+      "where counterparty = 'PR622 BATCH DUPLICATE SHOP'",
+      "and deleted = 0",
+      "and sms_fingerprint is not null",
+      `and ${activeUserFilter};`,
+    ].join(" "),
     [
       "select count(*) from transfers",
       "where notes = 'ATM Withdrawal'",
       "and amount = 2000",
       "and deleted = 0",
-      "and sms_fingerprint is not null;",
+      "and sms_fingerprint is not null",
+      `and ${activeUserFilter};`,
     ].join(" "),
-    "1",
-    "ATM withdrawal transfer count"
-  );
+  ];
 }
 
 let hasSavedSmsSyncBaseline = false;
@@ -220,5 +237,6 @@ if (require.main === module) {
 }
 
 module.exports = {
+  buildBatchSmsSavedVerificationQueries,
   buildSmsSyncProbeCleanupSql,
 };

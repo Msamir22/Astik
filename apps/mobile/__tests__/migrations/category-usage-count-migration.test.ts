@@ -16,6 +16,14 @@ function readMigrationSql(): string {
 }
 
 describe("category usage count migration", () => {
+  it("adds missing sync columns before enabling asset_metals updated_at trigger", () => {
+    const sql = readMigrationSql();
+
+    expect(sql).toMatch(
+      /ALTER TABLE public\.asset_metals[\s\S]*ADD COLUMN IF NOT EXISTS deleted boolean NOT NULL DEFAULT false,[\s\S]*ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now\(\);[\s\S]*CREATE TRIGGER handle_asset_metals_updated_at/m
+    );
+  });
+
   it("keeps shared system category usage counts out of user-scoped activity", () => {
     const sql = readMigrationSql();
 

@@ -247,6 +247,10 @@ function getLiveSmsJourneys() {
     .filter(Boolean);
 }
 
+function shouldBootstrapBeforeLiveSms(selectedSuites, supabaseMode) {
+  return selectedSuites.has("live-sms") && supabaseMode !== "local";
+}
+
 async function maybeRunAuthBootstrap() {
   if (shouldBootstrapAuth && !hasRunAuthBootstrap) {
     await runNodeScript("scripts/run-maestro.js", [
@@ -292,6 +296,10 @@ async function main() {
     await maybeRunSmsSyncJourneys();
   }
 
+  if (shouldBootstrapBeforeLiveSms(selectedSuites, getSupabaseMode())) {
+    await maybeRunAuthBootstrap();
+  }
+
   if (selectedSuites.has("live-sms")) {
     await runNodeScript(
       "scripts/run-live-sms-journeys.js",
@@ -311,4 +319,5 @@ module.exports = {
   appendOutputTail,
   getRequestedCiSuites,
   isDeviceOfflineFailure,
+  shouldBootstrapBeforeLiveSms,
 };

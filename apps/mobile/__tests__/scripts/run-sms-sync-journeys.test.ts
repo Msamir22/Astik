@@ -1,5 +1,6 @@
 interface RunSmsSyncJourneysModule {
   buildSmsSyncProbeCleanupSql(): string;
+  buildBatchSmsSavedVerificationQueries(): readonly string[];
 }
 
 const smsSyncJourneys = jest.requireActual(
@@ -19,5 +20,16 @@ describe("run-sms-sync-journeys helpers", () => {
     expect(sql).toContain(
       "user_id = (select user_id from profiles where deleted = 0 order by updated_at desc limit 1)"
     );
+  });
+
+  it("verifies saved SMS sync rows only for the current E2E user", () => {
+    const queries = smsSyncJourneys.buildBatchSmsSavedVerificationQueries();
+
+    expect(queries).toHaveLength(3);
+    for (const query of queries) {
+      expect(query).toContain(
+        "user_id = (select user_id from profiles where deleted = 0 order by updated_at desc limit 1)"
+      );
+    }
   });
 });

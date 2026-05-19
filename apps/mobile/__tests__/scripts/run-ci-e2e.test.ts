@@ -8,6 +8,10 @@ interface RunCiE2eModule {
     env?: Readonly<Record<string, string | undefined>>
   ): ReadonlySet<"transactions" | "sms-sync" | "live-sms">;
   isDeviceOfflineFailure(output: string): boolean;
+  shouldBootstrapBeforeLiveSms(
+    selectedSuites: ReadonlySet<string>,
+    supabaseMode: "local" | "remote"
+  ): boolean;
 }
 
 const runCiE2e = jest.requireActual(
@@ -57,6 +61,18 @@ describe("run-ci-e2e helpers", () => {
       runCiE2e.isDeviceOfflineFailure(
         'Assertion is false: "Transactions" is visible'
       )
+    ).toBe(false);
+  });
+
+  it("bootstraps auth for remote live-SMS-only suites", () => {
+    expect(
+      runCiE2e.shouldBootstrapBeforeLiveSms(new Set(["live-sms"]), "remote")
+    ).toBe(true);
+    expect(
+      runCiE2e.shouldBootstrapBeforeLiveSms(new Set(["live-sms"]), "local")
+    ).toBe(false);
+    expect(
+      runCiE2e.shouldBootstrapBeforeLiveSms(new Set(["sms-sync"]), "remote")
     ).toBe(false);
   });
 });

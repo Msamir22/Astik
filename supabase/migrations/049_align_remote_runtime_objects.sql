@@ -136,6 +136,10 @@ AFTER INSERT OR DELETE OR UPDATE ON public.transactions
 FOR EACH ROW EXECUTE FUNCTION public.update_category_usage_count();
 
 DROP TRIGGER IF EXISTS handle_asset_metals_updated_at ON public.asset_metals;
+ALTER TABLE public.asset_metals
+  ADD COLUMN IF NOT EXISTS deleted boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+
 CREATE TRIGGER handle_asset_metals_updated_at
 BEFORE UPDATE ON public.asset_metals
 FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();

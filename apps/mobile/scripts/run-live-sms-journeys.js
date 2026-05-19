@@ -30,6 +30,13 @@ const activeUserFilter =
   "user_id = (select user_id from profiles where deleted = 0 order by updated_at desc limit 1)";
 const releaseOnlyJourneyIds = new Set(["15"]);
 const isReleaseRun = process.env.E2E_RELEASE_BUILD === "1";
+const killedAppConfirmMarker = createKilledAppConfirmMarker(process.env);
+process.env.MAESTRO_CLOSED_CONFIRM_MARKET = killedAppConfirmMarker;
+
+function createKilledAppConfirmMarker(env = process.env) {
+  const runId = env.E2E_PROBE_RUN_ID || `${Date.now()}`;
+  return `CLOSED CONFIRM MARKET ${runId}`;
+}
 
 function clearPermissionFlags(permission) {
   adb(
@@ -659,11 +666,11 @@ function sendKilledAppConfirmSms() {
   killBackgroundAppProcess();
   sendEmulatorSms(
     "QNB",
-    "Purchase EGP 72.56 at CLOSED CONFIRM MARKET using card ending 1234"
+    `Purchase EGP 72.56 at ${killedAppConfirmMarker} using card ending 1234`
   );
   const notificationPatterns = [
     "Expense Detected",
-    "CLOSED CONFIRM MARKET",
+    killedAppConfirmMarker,
     "72\\.56",
   ];
   waitForNotificationText(notificationPatterns);
@@ -900,5 +907,6 @@ if (require.main === module) {
 
 module.exports = {
   buildLiveSmsActionProbeCleanupSql,
+  createKilledAppConfirmMarker,
   shouldSkipRunAsProbeCleanup,
 };
