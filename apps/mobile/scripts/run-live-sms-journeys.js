@@ -556,7 +556,18 @@ function buildLiveSmsActionProbeCleanupSql() {
   return sql;
 }
 
+function shouldSkipRunAsProbeCleanup(env = process.env) {
+  return env.E2E_RELEASE_BUILD === "1";
+}
+
 function clearLiveSmsActionProbeRows() {
+  if (shouldSkipRunAsProbeCleanup()) {
+    logInfo("liveSmsProbeCleanup.skipped", {
+      reason: "run-as-unavailable-for-release-apk",
+    });
+    return;
+  }
+
   const sql = buildLiveSmsActionProbeCleanupSql();
 
   adb(["shell", "run-as", appId, "sqlite3", "watermelon.db"], {
@@ -889,4 +900,5 @@ if (require.main === module) {
 
 module.exports = {
   buildLiveSmsActionProbeCleanupSql,
+  shouldSkipRunAsProbeCleanup,
 };

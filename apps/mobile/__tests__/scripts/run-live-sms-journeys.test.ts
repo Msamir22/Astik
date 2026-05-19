@@ -1,5 +1,8 @@
 interface RunLiveSmsJourneysModule {
   buildLiveSmsActionProbeCleanupSql(): string;
+  shouldSkipRunAsProbeCleanup(
+    env?: Readonly<Record<string, string | undefined>>
+  ): boolean;
 }
 
 const liveSmsJourneys = jest.requireActual(
@@ -19,5 +22,14 @@ describe("run-live-sms-journeys helpers", () => {
     expect(sql).toContain("delete from transfers where");
     expect(sql).toContain("notes like '%CONFIRM ACTION MARKET%'");
     expect(sql).not.toMatch(/delete from transfers where[^;]*counterparty/);
+  });
+
+  it("skips run-as probe cleanup for release APK runs", () => {
+    expect(
+      liveSmsJourneys.shouldSkipRunAsProbeCleanup({
+        E2E_RELEASE_BUILD: "1",
+      })
+    ).toBe(true);
+    expect(liveSmsJourneys.shouldSkipRunAsProbeCleanup({})).toBe(false);
   });
 });
