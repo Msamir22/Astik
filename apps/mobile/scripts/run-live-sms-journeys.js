@@ -16,6 +16,7 @@ const { getE2eSeedConfig, seedE2eData } = require("./e2e-seed");
 
 const mobileRoot = join(__dirname, "..");
 const flowDir = join("e2e", "maestro", "live-sms-detection");
+const defaultMaestroFlowTimeoutMs = 10 * 60 * 1000;
 
 const smsPermissions = [
   "android.permission.READ_SMS",
@@ -160,6 +161,13 @@ function isRetryableMaestroTransportFailure(output) {
   );
 }
 
+function getMaestroFlowTimeoutMs(env = process.env) {
+  const parsed = Number(env.E2E_MAESTRO_FLOW_TIMEOUT_MS);
+  return Number.isFinite(parsed) && parsed > 0
+    ? parsed
+    : defaultMaestroFlowTimeoutMs;
+}
+
 function reconnectMaestroTransport() {
   run("adb", ["kill-server"], { allowFailure: true, timeout: 30000 });
   run("adb", ["start-server"], { timeout: 30000 });
@@ -177,9 +185,11 @@ function runMaestroFlowOnce(maestroBin, flow) {
     maxBuffer: 16 * 1024 * 1024,
     shell: process.platform === "win32" && maestroBin.endsWith(".bat"),
     stdio: ["ignore", "pipe", "pipe"],
+    timeout: getMaestroFlowTimeoutMs(),
   });
   const stdout = result.stdout || "";
   const stderr = result.stderr || "";
+  const errorMessage = result.error?.message ?? "";
 
   if (stdout) {
     process.stdout.write(stdout);
@@ -189,7 +199,9 @@ function runMaestroFlowOnce(maestroBin, flow) {
   }
 
   return {
-    output: `${stdout}${stderr}${result.error?.message ?? ""}`,
+    didTimeout:
+      result.error?.code === "ETIMEDOUT" || result.signal === "SIGTERM",
+    output: `${stdout}${stderr}${errorMessage}`,
     status: result.error ? 1 : (result.status ?? 1),
   };
 }
@@ -208,9 +220,12 @@ function runFlow(flow) {
 
     if (
       attempt === 1 &&
-      isRetryableMaestroTransportFailure(result.output)
+      (result.didTimeout || isRetryableMaestroTransportFailure(result.output))
     ) {
-      logInfo("liveSmsJourney.maestroTransportRetry", { flow });
+      logInfo("liveSmsJourney.maestroTransportRetry", {
+        flow,
+        reason: result.didTimeout ? "timeout" : "transport-unavailable",
+      });
       reconnectMaestroTransport();
       continue;
     }
@@ -983,6 +998,7 @@ if (require.main === module) {
 module.exports = {
   buildLiveSmsActionProbeCleanupSql,
   createKilledAppConfirmMarker,
+  getMaestroFlowTimeoutMs,
   getActiveUserFilter,
   isRetryableMaestroTransportFailure,
   shouldSkipRunAsProbeCleanup,
