@@ -1,4 +1,5 @@
 const { join } = require("node:path");
+const { spawnSync } = require("node:child_process");
 const { createClient } = require("@supabase/supabase-js");
 const {
   adb,
@@ -153,13 +154,69 @@ function grantNotificationPermission() {
   grantPermission(notificationPermission);
 }
 
+function isRetryableMaestroTransportFailure(output) {
+  return /StatusRuntimeException:\s*UNAVAILABLE(?::\s*End of stream or IOException)?|host:transport:.*device offline|device offline/i.test(
+    output
+  );
+}
+
+function reconnectMaestroTransport() {
+  run("adb", ["kill-server"], { allowFailure: true, timeout: 30000 });
+  run("adb", ["start-server"], { timeout: 30000 });
+  run("adb", ["wait-for-device"], { timeout: 60000 });
+
+  if (!isReleaseRun) {
+    adb(["reverse", "tcp:8081", "tcp:8081"], { allowFailure: true });
+  }
+}
+
+function runMaestroFlowOnce(maestroBin, flow) {
+  const result = spawnSync(maestroBin, ["test", join(flowDir, flow)], {
+    encoding: "utf8",
+    cwd: mobileRoot,
+    maxBuffer: 16 * 1024 * 1024,
+    shell: process.platform === "win32" && maestroBin.endsWith(".bat"),
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  const stdout = result.stdout || "";
+  const stderr = result.stderr || "";
+
+  if (stdout) {
+    process.stdout.write(stdout);
+  }
+  if (stderr) {
+    process.stderr.write(stderr);
+  }
+
+  return {
+    output: `${stdout}${stderr}${result.error?.message ?? ""}`,
+    status: result.error ? 1 : (result.status ?? 1),
+  };
+}
+
 function runFlow(flow) {
   const maestroBin = resolveMaestroBin();
   if (!maestroBin) {
     throw new Error("Maestro was not found. Install it or set MAESTRO_BIN.");
   }
 
-  run(maestroBin, ["test", join(flowDir, flow)], { cwd: mobileRoot });
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    const result = runMaestroFlowOnce(maestroBin, flow);
+    if (result.status === 0) {
+      return;
+    }
+
+    if (
+      attempt === 1 &&
+      isRetryableMaestroTransportFailure(result.output)
+    ) {
+      logInfo("liveSmsJourney.maestroTransportRetry", { flow });
+      reconnectMaestroTransport();
+      continue;
+    }
+
+    throw new Error(`${maestroBin} test ${join(flowDir, flow)} failed`);
+  }
 }
 
 function applyLocalE2eDefaults() {
@@ -927,5 +984,6 @@ module.exports = {
   buildLiveSmsActionProbeCleanupSql,
   createKilledAppConfirmMarker,
   getActiveUserFilter,
+  isRetryableMaestroTransportFailure,
   shouldSkipRunAsProbeCleanup,
 };
