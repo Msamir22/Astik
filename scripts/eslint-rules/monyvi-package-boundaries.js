@@ -1,12 +1,6 @@
 "use strict";
 
-const KNOWN_DEBT_FILE_SUFFIXES = [
-  "packages/db/src/models/Account.ts",
-  "packages/db/src/models/Budget.ts",
-  "packages/db/src/models/Transaction.ts",
-  "packages/logic/src/analytics/transaction-analytics.ts",
-  "packages/logic/src/parsers/notification-parser.ts",
-];
+const KNOWN_DEBT_FILE_SUFFIXES = [];
 
 function normalizePath(fileName) {
   return fileName.replace(/\\/g, "/");
