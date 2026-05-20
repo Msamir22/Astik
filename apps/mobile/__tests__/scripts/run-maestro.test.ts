@@ -1,5 +1,7 @@
 interface RunMaestroModule {
-  getMaestroTimeoutMs(env?: Readonly<Record<string, string | undefined>>): number;
+  getMaestroTimeoutMs(
+    env?: Readonly<Record<string, string | undefined>>
+  ): number;
 }
 
 const runMaestro = jest.requireActual(

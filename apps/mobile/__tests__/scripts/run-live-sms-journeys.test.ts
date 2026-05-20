@@ -3,7 +3,9 @@ interface RunLiveSmsJourneysModule {
   shouldSkipRunAsProbeCleanup(
     env?: Readonly<Record<string, string | undefined>>
   ): boolean;
-  createKilledAppConfirmMarker(env?: Readonly<Record<string, string | undefined>>): string;
+  createKilledAppConfirmMarker(
+    env?: Readonly<Record<string, string | undefined>>
+  ): string;
   getMaestroFlowTimeoutMs(
     env?: Readonly<Record<string, string | undefined>>
   ): number;
@@ -29,9 +31,7 @@ describe("run-live-sms-journeys helpers", () => {
     expect(sql).toContain("delete from transactions where");
     expect(sql).toContain("counterparty like '%CONFIRM ACTION MARKET%'");
     expect(sql).toContain("note like '%CONFIRM ACTION MARKET%'");
-    expect(sql).toContain(
-      "user_id = 'e2e-user-1'"
-    );
+    expect(sql).toContain("user_id = 'e2e-user-1'");
     expect(sql).toContain("delete from transfers where");
     expect(sql).toContain("notes like '%CONFIRM ACTION MARKET%'");
     expect(sql).not.toMatch(/delete from transfers where[^;]*counterparty/);

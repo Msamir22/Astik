@@ -26,8 +26,12 @@ describe("sms fingerprint migration", () => {
   it("removes sms_body_hash and creates scoped sms_fingerprint indexes for transactions and transfers", () => {
     const sql = readMigrationSql();
 
-    expect(sql).toContain("DROP INDEX IF EXISTS public.idx_transactions_sms_body_hash");
-    expect(sql).toContain("DROP INDEX IF EXISTS public.idx_transfers_sms_body_hash");
+    expect(sql).toContain(
+      "DROP INDEX IF EXISTS public.idx_transactions_sms_body_hash"
+    );
+    expect(sql).toContain(
+      "DROP INDEX IF EXISTS public.idx_transfers_sms_body_hash"
+    );
     expect(sql).toMatch(
       /ALTER TABLE public\.transactions[\s\S]*DROP COLUMN IF EXISTS sms_body_hash,[\s\S]*ADD COLUMN IF NOT EXISTS sms_fingerprint TEXT;/m
     );

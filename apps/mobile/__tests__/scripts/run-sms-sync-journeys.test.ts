@@ -1,6 +1,9 @@
 interface RunSmsSyncJourneysModule {
   buildSmsSyncProbeCleanupSql(): string;
   buildBatchSmsSavedVerificationQueries(): readonly string[];
+  shouldRelaunchBetweenSmsSyncJourneys(
+    env?: Readonly<Record<string, string | undefined>>
+  ): boolean;
 }
 
 const smsSyncJourneys = jest.requireActual(
@@ -25,9 +28,7 @@ describe("run-sms-sync-journeys helpers", () => {
     expect(sql).toContain("notes = 'ATM Withdrawal'");
     expect(sql).toContain("amount = 2000");
     expect(sql).toContain("sms_fingerprint is not null");
-    expect(sql).toContain(
-      "user_id = 'e2e-user-1'"
-    );
+    expect(sql).toContain("user_id = 'e2e-user-1'");
   });
 
   it("verifies saved SMS sync rows only for the current E2E user", () => {
@@ -35,9 +36,18 @@ describe("run-sms-sync-journeys helpers", () => {
 
     expect(queries).toHaveLength(3);
     for (const query of queries) {
-      expect(query).toContain(
-        "user_id = 'e2e-user-1'"
-      );
+      expect(query).toContain("user_id = 'e2e-user-1'");
     }
+  });
+
+  it("keeps the authenticated dev-client session alive by default", () => {
+    expect(smsSyncJourneys.shouldRelaunchBetweenSmsSyncJourneys({})).toBe(
+      false
+    );
+    expect(
+      smsSyncJourneys.shouldRelaunchBetweenSmsSyncJourneys({
+        E2E_SMS_SYNC_RELAUNCH_BETWEEN_JOURNEYS: "1",
+      })
+    ).toBe(true);
   });
 });
