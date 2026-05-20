@@ -16,85 +16,16 @@ const path = require("path");
 
 /**
  * @typedef {Object} PatchEntry
- * @property {string} packageName       - npm package name for version check
- * @property {string} expectedVersion   - exact version this patch targets
- * @property {string} file              - absolute path to the file to patch
- * @property {string} search            - exact string to find
- * @property {string} replace           - replacement string
- * @property {string} description       - human-readable description
+ * @property {string} packageName      - npm package name for version check
+ * @property {string} expectedVersion  - exact version this patch targets
+ * @property {string} file             - absolute path to the file to patch
+ * @property {string} search           - exact string to find
+ * @property {string} replace          - replacement string
+ * @property {string} description      - human-readable description
  */
 
 /** @type {PatchEntry[]} */
 const patches = [
-  {
-    packageName: "react-native-get-sms-android",
-    expectedVersion: "2.1.0",
-    file: path.join(
-      __dirname,
-      "..",
-      "node_modules",
-      "react-native-get-sms-android",
-      "android",
-      "build.gradle"
-    ),
-    search: `buildscript {
-    repositories {
-        google()
-        jcenter()
-    }`,
-    replace: `buildscript {
-    repositories {
-        google()
-        mavenCentral()
-    }`,
-    description:
-      "react-native-get-sms-android: replace buildscript jcenter with mavenCentral",
-  },
-  {
-    packageName: "react-native-get-sms-android",
-    expectedVersion: "2.1.0",
-    file: path.join(
-      __dirname,
-      "..",
-      "node_modules",
-      "react-native-get-sms-android",
-      "android",
-      "build.gradle"
-    ),
-    search: `android {
-    compileSdkVersion safeExtGet('compileSdkVersion', 28)`,
-    replace: `android {
-    namespace "com.react"
-    compileSdkVersion safeExtGet('compileSdkVersion', 28)`,
-    description:
-      "react-native-get-sms-android: add Android namespace for AGP 8",
-  },
-  {
-    packageName: "react-native-get-sms-android",
-    expectedVersion: "2.1.0",
-    file: path.join(
-      __dirname,
-      "..",
-      "node_modules",
-      "react-native-get-sms-android",
-      "android",
-      "build.gradle"
-    ),
-    search: `    jcenter()
-}
-
-dependencies {
-    compile "com.facebook.react:react-native:+"
-}`,
-    replace: `    mavenCentral()
-}
-
-dependencies {
-    compileOnly "com.facebook.react:react-android"
-}`,
-    description:
-      "react-native-get-sms-android: replace jcenter and legacy React Native dependency",
-  },
   {
     packageName: "@supabase/supabase-js",
     expectedVersion: "2.106.0",
@@ -173,6 +104,125 @@ function getInstalledVersion(packageName) {
 
 let applied = 0;
 let skipped = 0;
+
+function patchReactNativeGetSmsAndroid() {
+  const packageName = "react-native-get-sms-android";
+  const expectedVersion = "2.1.0";
+  const file = path.join(
+    __dirname,
+    "..",
+    "node_modules",
+    packageName,
+    "android",
+    "build.gradle"
+  );
+  const description =
+    "react-native-get-sms-android: align Gradle project for AGP 8 / RN 0.83";
+
+  const installedVersion = getInstalledVersion(packageName);
+  if (installedVersion !== expectedVersion) {
+    console.warn(
+      `[postinstall] SKIP: ${packageName}@${installedVersion ?? "not installed"} ` +
+        `does not match expected ${expectedVersion}. ` +
+        `Patch may no longer be needed: ${description}`
+    );
+    skipped++;
+    return;
+  }
+
+  if (!fs.existsSync(file)) {
+    throw new Error(
+      `[postinstall] FAIL: File not found: ${file} ` +
+        `(expected for ${packageName}@${expectedVersion}). ` +
+        `Patch: ${description}`
+    );
+  }
+
+  const original = fs.readFileSync(file, "utf8");
+  let patched = original.replace(
+    /^(\s*)jcenter\(\)\s*$/gm,
+    "$1mavenCentral()"
+  );
+
+  if (!patched.includes('namespace "com.react"')) {
+    const namespaceSearch = `android {
+    compileSdkVersion safeExtGet('compileSdkVersion', 28)`;
+    const namespaceReplace = `android {
+    namespace "com.react"
+    compileSdkVersion safeExtGet('compileSdkVersion', 28)`;
+
+    if (!patched.includes(namespaceSearch)) {
+      throw new Error(
+        `[postinstall] FAIL: Could not locate android block in ` +
+          `${path.basename(file)}. Package version matches (${expectedVersion}) ` +
+          `but file content does not. Patch: ${description}`
+      );
+    }
+
+    patched = patched.replace(namespaceSearch, namespaceReplace);
+  }
+
+  const desiredDependency = `    compileOnly "com.facebook.react:react-android"`;
+  if (!patched.includes(desiredDependency)) {
+    const dependencyPatterns = [
+      `    compileOnly "com.facebook.react:react-native:\${safeExtGet('reactNativeVersion', '+')}"`,
+      `    compile "com.facebook.react:react-native:+"`,
+      `    implementation "com.facebook.react:react-native:+"`,
+    ];
+    const matchedPattern = dependencyPatterns.find((pattern) =>
+      patched.includes(pattern)
+    );
+
+    if (!matchedPattern) {
+      throw new Error(
+        `[postinstall] FAIL: Could not locate legacy React Native dependency in ` +
+          `${path.basename(file)}. Package version matches (${expectedVersion}) ` +
+          `but file content does not. Patch: ${description}`
+      );
+    }
+
+    patched = patched.replace(matchedPattern, desiredDependency);
+  }
+
+  if (patched.includes("jcenter()")) {
+    throw new Error(
+      `[postinstall] FAIL: jcenter() remains in ${path.basename(file)}. ` +
+        `Patch: ${description}`
+    );
+  }
+
+  if (!patched.includes('namespace "com.react"')) {
+    throw new Error(
+      `[postinstall] FAIL: Android namespace was not added to ` +
+        `${path.basename(file)}. Patch: ${description}`
+    );
+  }
+
+  if (!patched.includes(desiredDependency)) {
+    throw new Error(
+      `[postinstall] FAIL: React Android dependency was not added to ` +
+        `${path.basename(file)}. Patch: ${description}`
+    );
+  }
+
+  if (patched.includes("com.facebook.react:react-native")) {
+    throw new Error(
+      `[postinstall] FAIL: Legacy React Native dependency remains in ` +
+        `${path.basename(file)}. Patch: ${description}`
+    );
+  }
+
+  if (patched === original) {
+    skipped++;
+    return;
+  }
+
+  fs.writeFileSync(file, patched, "utf8");
+  console.log(`[postinstall] APPLIED: ${description}`);
+  applied++;
+}
+
+patchReactNativeGetSmsAndroid();
 
 for (const patch of patches) {
   // 1. Version gate: only patch the exact version we've verified against
