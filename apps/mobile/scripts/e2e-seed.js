@@ -6,7 +6,6 @@ const { createClient } = require("@supabase/supabase-js");
 const LOCAL_SUPABASE_URL = "http://127.0.0.1:54321";
 const LOCAL_ANDROID_SUPABASE_URL = "http://10.0.2.2:54321";
 const DEFAULT_LOCAL_E2E_EMAIL = "e2e@monyvi.test";
-const DEFAULT_LOCAL_E2E_PASSWORD = "Password123!";
 const repoRoot = resolve(__dirname, "..", "..", "..");
 
 const E2E_USER_FULL_NAME = "Monyvi E2E";
@@ -95,6 +94,15 @@ function createLocalSupabaseJwt(jwtSecret, role) {
     .digest("base64url");
 
   return `${signingInput}.${signature}`;
+}
+
+function createLocalE2ePassword(seed) {
+  const hash = createHash("sha256")
+    .update("monyvi:local-e2e-password:")
+    .update(seed)
+    .digest("base64url")
+    .slice(0, 24);
+  return `MonyviE2E-${hash}-1aA!`;
 }
 
 function requiredRemoteEnv(env, name) {
@@ -229,7 +237,7 @@ function getE2eSeedConfig(env = process.env, options = {}) {
     password:
       env.MAESTRO_E2E_PASSWORD ??
       (isLocal
-        ? DEFAULT_LOCAL_E2E_PASSWORD
+        ? createLocalE2ePassword(localKeys.serviceRoleKey)
         : requiredRemoteEnv(env, "MAESTRO_E2E_PASSWORD")),
   };
 }
@@ -530,7 +538,6 @@ async function seedE2eData(client, config) {
     onConflict: "id",
   });
   await upsertRows(client, "transfers", rows.transfers, { onConflict: "id" });
-
   if (config.mode === "local") {
     await upsertRows(client, "market_rates", rows.marketRate, {
       onConflict: "id",

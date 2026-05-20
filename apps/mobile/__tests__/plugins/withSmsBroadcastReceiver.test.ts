@@ -214,4 +214,25 @@ describe("withSmsBroadcastReceiver", () => {
     expect(manifest.application[0].receiver).toHaveLength(1);
     expect(manifest.application[0].service).toHaveLength(1);
   });
+
+  it("fails fast when MainApplication.kt is missing", () => {
+    expect(() => withSmsBroadcastReceiver(createConfig(projectRoot))).toThrow(
+      "MainApplication.kt not found"
+    );
+  });
+
+  it("fails fast when foreground tracker registration cannot be injected", () => {
+    const mainApplicationPath = createMainApplication(projectRoot);
+    fs.writeFileSync(
+      mainApplicationPath,
+      fs
+        .readFileSync(mainApplicationPath, "utf8")
+        .replace("    super.onCreate()\n", ""),
+      "utf8"
+    );
+
+    expect(() => withSmsBroadcastReceiver(createConfig(projectRoot))).toThrow(
+      "Could not inject MonyviAppForegroundTracker.register(this)"
+    );
+  });
 });

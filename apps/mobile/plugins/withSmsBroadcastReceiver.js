@@ -492,10 +492,9 @@ function withSmsEventPackageRegistration(config) {
       );
 
       if (!fs.existsSync(mainApplicationPath)) {
-        console.warn(
-          "[withSmsBroadcastReceiver] MainApplication.kt not found, skipping package registration"
+        throw new Error(
+          `[withSmsBroadcastReceiver] MainApplication.kt not found at ${mainApplicationPath}`
         );
-        return modConfig;
       }
 
       let content = fs.readFileSync(mainApplicationPath, "utf-8");
@@ -548,14 +547,20 @@ function withSmsEventPackageRegistration(config) {
             `${match}.apply {${eol}              add(${packageName}.SmsEventPackage())${eol}            }`
         );
       } else if (!content.includes("SmsEventPackage")) {
-        console.warn(
+        throw new Error(
           "[withSmsBroadcastReceiver] Could not find PackageList pattern in MainApplication.kt"
         );
       }
 
       if (!content.includes("MonyviAppForegroundTracker.register(this)")) {
+        const onCreatePattern = /(\s+super\.onCreate\(\)\r?\n)/;
+        if (!onCreatePattern.test(content)) {
+          throw new Error(
+            "[withSmsBroadcastReceiver] Could not inject MonyviAppForegroundTracker.register(this) into MainApplication.kt"
+          );
+        }
         content = content.replace(
-          /(\s+super\.onCreate\(\)\r?\n)/,
+          onCreatePattern,
           (match) =>
             `${match}    ${packageName}.MonyviAppForegroundTracker.register(this)${eol}`
         );

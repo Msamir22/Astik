@@ -8,7 +8,7 @@ import { Q } from "@nozbe/watermelondb";
 import {
   createContext,
   type JSX,
-  ReactNode,
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,

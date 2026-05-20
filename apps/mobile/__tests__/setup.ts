@@ -111,14 +111,10 @@ jest.mock("react-native-reanimated", () =>
 // wrapped in act(). Existing tests use a small project-local RTR pattern, so
 // keep that pattern working by wrapping create() at the test boundary.
 jest.mock("react-test-renderer", () => {
-  interface ReactTestRendererModule {
+  const actual = jest.requireActual("react-test-renderer") as unknown as {
     readonly act: (callback: () => void) => void;
     readonly create: (...args: readonly unknown[]) => unknown;
-  }
-
-  const actual = jest.requireActual(
-    "react-test-renderer"
-  ) as unknown as ReactTestRendererModule;
+  };
   const originalCreate = actual.create;
 
   return {

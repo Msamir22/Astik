@@ -18,7 +18,7 @@ describe("e2e-seed script helpers", () => {
     expect(config.supabaseUrl).toBe("http://127.0.0.1:54321");
     expect(config.appSupabaseUrl).toBe("http://10.0.2.2:54321");
     expect(config.email).toBe("e2e@monyvi.test");
-    expect(config.password).toBe("Password123!");
+    expect(config.password).toMatch(/^MonyviE2E-.+-1aA!$/);
     expect(config.serviceRoleKey).toContain("eyJ");
   });
 
@@ -39,7 +39,7 @@ describe("e2e-seed script helpers", () => {
     expect(config.anonKey).toBe("local-anon-key");
     expect(config.serviceRoleKey).toBe("local-service-role-key");
     expect(config.email).toBe("e2e@monyvi.test");
-    expect(config.password).toBe("Password123!");
+    expect(config.password).toMatch(/^MonyviE2E-.+-1aA!$/);
   });
 
   it("fails fast when local Supabase keys cannot be resolved", () => {

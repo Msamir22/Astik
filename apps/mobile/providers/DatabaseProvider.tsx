@@ -8,7 +8,7 @@ import { Collection, Database } from "@nozbe/watermelondb";
 import {
   createContext,
   type JSX,
-  ReactNode,
+  type ReactNode,
   useContext,
   useEffect,
   useMemo,

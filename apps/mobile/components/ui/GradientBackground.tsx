@@ -1,11 +1,11 @@
 import { LinearGradient } from "expo-linear-gradient";
-import React, { type JSX } from "react";
-import { View, ViewStyle } from "react-native";
+import type { JSX, ReactNode } from "react";
+import { View, type ViewStyle } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "@/context/ThemeContext";
 
 interface Props {
-  children: React.ReactNode;
+  children: ReactNode;
   style?: ViewStyle;
   className?: string;
 }

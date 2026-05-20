@@ -219,10 +219,9 @@ function disableExpoDevMenuFabForE2e() {
   if (isReleaseBuild) return;
 
   adb(["shell", "run-as", appId, "mkdir", "-p", "shared_prefs"], {
-    allowFailure: true,
+    capture: true,
   });
   adb(["shell", "run-as", appId, "tee", devMenuPreferencesPath], {
-    allowFailure: true,
     capture: true,
     input: buildDevMenuPreferencesXml(),
   });
